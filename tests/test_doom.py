@@ -14,7 +14,7 @@ import time
 import unittest
 
 BUILD_DIR = Path(os.environ.get("NBT_BUILD_DIR", "build"))
-MGR_DIR = Path(os.environ.get("NBT_MGR_DIR", "/home/mobyfab/src/reverse/nbt-apps-manager"))
+MGR_DIR = Path(os.environ.get("NBT_MGR_DIR", Path(__file__).resolve().parents[2] / "manager"))
 HOST_BIN = BUILD_DIR / "nbt-doom-host"
 QNX_BIN = BUILD_DIR / "nbt-doom-qnx"
 

@@ -11,9 +11,12 @@ HAS_DOOM1_WAD := $(wildcard $(DOOM1_WAD))
 APP_VERSION ?= 1.0.18
 APP_SEQ ?= 19
 APP_KEY ?=
-NBT_MGR_DIR ?= /home/mobyfab/src/reverse/nbt-apps-manager
-QNX_ENV ?= /home/mobyfab/src/tools/qnx-6.5-tools/env.sh
-QNX_SCREEN_LIBDIR ?= /home/mobyfab/src/reverse/Supra-iDrive6-Android-Auto/milestone-7/lib
+# Sibling NBTFoundry checkouts; override as needed.
+NBT_MGR_DIR ?= ../manager
+# QNX 6.5 toolchain: the environment script to source, and the folder holding
+# the head unit's libscreen.so.
+QNX_ENV ?=
+QNX_SCREEN_LIBDIR ?=
 
 CC ?= gcc
 CXX ?= g++
