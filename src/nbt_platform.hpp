@@ -1,21 +1,22 @@
 #ifndef NBT_DOOM_PLATFORM_HPP
 #define NBT_DOOM_PLATFORM_HPP
 
-#include "input_idrive.hpp"
+#include "doom_settings.hpp"
+#include "doom_video.hpp"
 #include "input_gamepad.hpp"
-#include "lifecycle.hpp"
-#include "sound_qnx.hpp"
-#include "video_egl.hpp"
+#include "input_idrive.hpp"
+#include "nbt/app/audio_mixer.hpp"
+#include "nbt/app/lifecycle.hpp"
 
 namespace nbt_doom {
 
 struct PlatformState {
-  Lifecycle* lifecycle;
-  VideoEgl* video;
+  nbt::app::Lifecycle* lifecycle;
+  DoomVideo* video;
   IdriveDecoder* idrive;
   GamepadDecoder* gamepad;
-  InputMixer* input;
-  SoundMixer* sound;
+  nbt::app::InputMixer* input;
+  nbt::app::AudioMixer* sound;
   AppSettings applied_settings;
   bool settings_applied;
   bool shutdown_done;

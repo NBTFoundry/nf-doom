@@ -74,17 +74,11 @@ OUR_C := \
 OUR_CXX := \
 	src/wad_vfs.cpp \
 	src/wad_embed_reg.cpp \
-	src/nbt_log.cpp \
-	src/lifecycle.cpp \
+	src/doom_settings.cpp \
+	src/doom_log.cpp \
+	src/doom_video.cpp \
 	src/input_idrive.cpp \
-	src/input_actions.cpp \
 	src/input_gamepad.cpp \
-	src/bridge_input_fd.cpp \
-	src/settings.cpp \
-	src/video_qnx.cpp \
-	src/video_egl.cpp \
-	src/audio_route_qnx.cpp \
-	src/sound_qnx.cpp \
 	src/i_system_nbt.cpp \
 	src/i_sound_nbt.cpp \
 	src/i_video_nbt.cpp \
@@ -222,17 +216,11 @@ run-doom-host: $(BUILD_DIR)/nbt-doom-host
 UNIT_CXX_SRC := \
 	src/wad_vfs.cpp \
 	src/wad_embed_reg.cpp \
-	src/nbt_log.cpp \
-	src/lifecycle.cpp \
+	src/doom_settings.cpp \
+	src/doom_log.cpp \
+	src/doom_video.cpp \
 	src/input_idrive.cpp \
-	src/input_actions.cpp \
-	src/input_gamepad.cpp \
-	src/bridge_input_fd.cpp \
-	src/settings.cpp \
-	src/video_qnx.cpp \
-	src/video_egl.cpp \
-	src/audio_route_qnx.cpp \
-	src/sound_qnx.cpp
+	src/input_gamepad.cpp
 
 UNIT_C_SRC := \
 	src/prboom_compat/sdl_compat.c
@@ -273,7 +261,8 @@ check-static-init: doom-host
 			echo "ERROR: static constructor section in $$obj: $$ctors"; exit 1; \
 		fi; \
 	done; \
-	echo "OK: no unexpected .init_array/.ctors in NBT platform objects"
+	echo "OK: no unexpected .init_array/.ctors in Doom's platform objects"
+	+@$(NBT_SDK_MAKE) check-static-init
 
 format:
 	clang-format -i $(shell find src tests -maxdepth 2 \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \))
@@ -329,9 +318,9 @@ $(OBJ_DIR)/qnx/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_D
 	@mkdir -p $(dir $@)
 	. "$(QNX_ENV)" && $(QCC) $(QNX_C_VARIANT) $(WAD_ASM_FLAGS) -c src/wad_embed.S -o $@
 
-$(BUILD_DIR)/nbt-doom-qnx-unstripped: $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_QNX_LIBS) src/qnx_exports.list | qnx-env
+$(BUILD_DIR)/nbt-doom-qnx-unstripped: $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_QNX_LIBS) | qnx-env
 	@test -n "$(QNX_SCREEN_LIBDIR)" || { echo "QNX_SCREEN_LIBDIR is not set (directory with libscreen.so)"; exit 1; }
-	. "$(QNX_ENV)" && $(QCC) $(QNX_CPP_VARIANT) -lang-c++ $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_QNX_LIBS) -L$(QNX_SCREEN_LIBDIR) -Wl,--dynamic-list,src/qnx_exports.list $(NBT_SDK_QNX_LDLIBS) -o $@
+	. "$(QNX_ENV)" && $(QCC) $(QNX_CPP_VARIANT) -lang-c++ $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_QNX_LIBS) -L$(QNX_SCREEN_LIBDIR) $(NBT_SDK_QNX_LDFLAGS) $(NBT_SDK_QNX_LDLIBS) -o $@
 
 $(BUILD_DIR)/nbt-doom-qnx: $(BUILD_DIR)/nbt-doom-qnx-unstripped
 	. "$(QNX_ENV)" && $(QNX_STRIP) -o $@ $<
@@ -343,7 +332,8 @@ qnx-check: qnx
 	. "$(QNX_ENV)" && set -e; \
 		bad="$$($(QNX_NM) -u $(BUILD_DIR)/nbt-doom-qnx-unstripped | grep -E 'GLIBCXX_3\.4\.(1[4-9]|[2-9][0-9])|__cxa_throw' || true)"; \
 		if test -n "$$bad"; then echo "Disallowed QNX ABI symbols:"; echo "$$bad"; exit 1; fi; \
-		echo "OK: QNX binary ELF/ABI symbols verified"
+		$(QNX_NM) -D $(BUILD_DIR)/nbt-doom-qnx-unstripped | grep -qw kdMain || { echo "kdMain is not exported"; exit 1; }; \
+		echo "OK: QNX binary ELF/ABI symbols verified, kdMain exported"
 
 doom-package: qnx
 	@test -f "$(APP_KEY)" || { echo "APP_KEY must name the RSA signing key"; exit 1; }

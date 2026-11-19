@@ -8,9 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "nbt_log.hpp"
+#include "nbt/app/audio_mixer.hpp"
+#include "nbt/app/log.hpp"
 #include "nbt_platform.hpp"
-#include "sound_qnx.hpp"
 
 extern "C" {
 #include "d_main.h"
@@ -51,7 +51,7 @@ int g_music_looping = 1;
 int g_music_volume = 15;
 int g_steptable[256];
 
-nbt_doom::SoundMixer* get_mixer() {
+nbt::app::AudioMixer* get_mixer() {
   nbt_doom::PlatformState* st = nbt_doom::platform_state();
   return st ? st->sound : NULL;
 }
@@ -189,8 +189,8 @@ int snd_pcspeaker = 0;
 int lowpass_filter = 0;
 int snd_card = 1;
 int mus_card = 1;
-int snd_samplerate = nbt_doom::kDefaultSampleRate;
-int snd_samplecount = nbt_doom::kAudioFragFrames;
+int snd_samplerate = nbt::app::kAudioDefaultRate;
+int snd_samplecount = nbt::app::kAudioFragFrames;
 int use_experimental_music = 1;
 
 const char* snd_soundfont = "";
@@ -219,11 +219,11 @@ void I_SetChannels(void) {
 
 void I_InitSound(void) {
   if (g_sound_inited) return;
-  snd_samplerate = nbt_doom::kDefaultSampleRate;
-  snd_samplecount = nbt_doom::kAudioFragFrames;
+  snd_samplerate = nbt::app::kAudioDefaultRate;
+  snd_samplecount = nbt::app::kAudioFragFrames;
   I_SetChannels();
 
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) {
     mixer->init(snd_samplerate, true);
     const char* no_audio = getenv("NBT_NO_AUDIO");
@@ -231,13 +231,13 @@ void I_InitSound(void) {
       /* No device (1.0.5 in the car: libasound did not load, then a crash
        * right after S_Init). Sound off, as the Sound setting's -nosound,
        * which runs in the car. */
-      nbt_doom::nbt_log("no audio device; sound off");
+      nbt::app::log_info("no audio device; sound off");
       mixer->shutdown();
       nosfxparm = nomusicparm = true;
       return;
     }
     snd_samplerate = mixer->sample_rate();
-    nbt_doom::nbt_debug("I_InitSound rate=%d frag=%d", snd_samplerate, snd_samplecount);
+    nbt::app::log_debug("I_InitSound rate=%d frag=%d", snd_samplerate, snd_samplecount);
     I_InitMusic();
   }
   I_AtExit(I_ShutdownSound, true);
@@ -246,9 +246,9 @@ void I_InitSound(void) {
 
 void I_ShutdownSound(void) {
   if (!g_sound_inited) return;
-  nbt_doom::nbt_debug("I_ShutdownSound");
+  nbt::app::log_debug("I_ShutdownSound");
   I_ShutdownMusic();
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) {
     mixer->shutdown();
   }
@@ -272,9 +272,9 @@ int I_GetSfxLumpNum(sfxinfo_t* sfx) {
 
 int I_StartSound(int id, int channel, int vol, int sep, int pitch, int priority) {
   (void)priority;
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (!mixer || !g_sound_inited || snd_pcspeaker) return -1;
-  if (channel < 0 || channel >= nbt_doom::kMaxSoundChannels) return -1;
+  if (channel < 0 || channel >= nbt::app::AudioMixer::kChannels) return -1;
 
   SfxPcmCache pcm;
   if (!ensure_sfx_decoded(id, &pcm)) return -1;
@@ -292,23 +292,23 @@ int I_StartSound(int id, int channel, int vol, int sep, int pitch, int priority)
 }
 
 void I_StopSound(int handle) {
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) mixer->stop_channel(handle);
 }
 
 dboolean I_SoundIsPlaying(int handle) {
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   return (mixer && mixer->is_channel_playing(handle)) ? true : false;
 }
 
 dboolean I_AnySoundStillPlaying(void) {
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   return (mixer && mixer->any_channel_playing()) ? true : false;
 }
 
 void I_UpdateSoundParams(int handle, int vol, int sep, int pitch) {
   (void)pitch;
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (!mixer) return;
   int lvol = 0, rvol = 0;
   calc_volumes(vol, sep, &lvol, &rvol);
@@ -326,7 +326,7 @@ void I_InitMusic(void) {
   if (g_music_inited || nomusicparm) return;
   if (opl_synth_player.init && opl_synth_player.init(snd_samplerate)) {
     g_music_inited = true;
-    nbt_doom::SoundMixer* mixer = get_mixer();
+    nbt::app::AudioMixer* mixer = get_mixer();
     if (mixer) mixer->set_music_renderer(&render_music_cb);
     I_AtExit(I_ShutdownMusic, true);
   }
@@ -334,7 +334,7 @@ void I_InitMusic(void) {
 
 void I_ShutdownMusic(void) {
   if (!g_music_inited) return;
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) {
     mixer->lock();
     if (g_music_handle) {
@@ -353,7 +353,7 @@ void I_ShutdownMusic(void) {
 void I_SetMusicVolume(int volume) {
   g_music_volume = volume;
   if (!g_music_inited || !opl_synth_player.setvolume) return;
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) mixer->lock();
   opl_synth_player.setvolume(volume);
   if (mixer) mixer->unlock();
@@ -362,7 +362,7 @@ void I_SetMusicVolume(int volume) {
 void I_PauseSong(int handle) {
   (void)handle;
   if (!g_music_inited || !opl_synth_player.pause) return;
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) mixer->lock();
   opl_synth_player.pause();
   if (mixer) mixer->unlock();
@@ -371,7 +371,7 @@ void I_PauseSong(int handle) {
 void I_ResumeSong(int handle) {
   (void)handle;
   if (!g_music_inited || !opl_synth_player.resume) return;
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) mixer->lock();
   opl_synth_player.resume();
   if (mixer) mixer->unlock();
@@ -414,7 +414,7 @@ int I_RegisterSong(const void* data, size_t len) {
     return 0;
   }
 
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) mixer->lock();
   const void* h = opl_synth_player.registersong(owned, owned_len);
   if (h) {
@@ -438,7 +438,7 @@ void I_PlaySong(int handle, int looping) {
   (void)handle;
   g_music_looping = looping;
   if (!g_music_inited || !g_music_handle || !opl_synth_player.play) return;
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) mixer->lock();
   opl_synth_player.play(g_music_handle, looping);
   opl_synth_player.setvolume(g_music_volume);
@@ -448,7 +448,7 @@ void I_PlaySong(int handle, int looping) {
 void I_StopSong(int handle) {
   (void)handle;
   if (!g_music_inited || !opl_synth_player.stop) return;
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) mixer->lock();
   opl_synth_player.stop();
   if (mixer) mixer->unlock();
@@ -457,7 +457,7 @@ void I_StopSong(int handle) {
 void I_UnRegisterSong(int handle) {
   (void)handle;
   if (!g_music_inited) return;
-  nbt_doom::SoundMixer* mixer = get_mixer();
+  nbt::app::AudioMixer* mixer = get_mixer();
   if (mixer) mixer->lock();
   if (g_music_handle) {
     if (opl_synth_player.stop) opl_synth_player.stop();

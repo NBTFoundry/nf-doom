@@ -19,7 +19,7 @@ GamepadDecoder::GamepadDecoder()
       menu_(false),
       previous_(0),
       turn_(0) {}
-void GamepadDecoder::emit(InputAction::Type type, int value) {
+void GamepadDecoder::emit(int type, int value) {
   if (sink_) {
     const InputAction a = {type, value};
     sink_->on_action(a);
@@ -75,15 +75,15 @@ void GamepadDecoder::update(const nbt_gamepad_wire_state& s, uint64_t now, bool 
     if (e.pressed & NBT_GAMEPAD_SOUTH) tap(kDoomKeyEnter);
     if (e.pressed & NBT_GAMEPAD_EAST) tap(kDoomKeyBackspace);
   } else {
-    if (e.pressed & NBT_GAMEPAD_LB) emit(InputAction::kPreviousWeapon);
-    if (e.pressed & NBT_GAMEPAD_RB) emit(InputAction::kNextWeapon);
-    if (e.pressed & (NBT_GAMEPAD_NORTH | NBT_GAMEPAD_VIEW)) emit(InputAction::kAutomap);
+    if (e.pressed & NBT_GAMEPAD_LB) emit(kActionPreviousWeapon);
+    if (e.pressed & NBT_GAMEPAD_RB) emit(kActionNextWeapon);
+    if (e.pressed & (NBT_GAMEPAD_NORTH | NBT_GAMEPAD_VIEW)) emit(kActionAutomap);
     const int right = s.connected ? nbt_gamepad_axis(s.rx, 6553) : 0;
     turn_ += static_cast<int64_t>(right) * static_cast<int64_t>(elapsed) *
              turn_rate_units_per_sec(turn_sens);
     const int delta = static_cast<int>(turn_ / 32767000);
     turn_ %= 32767000;
-    if (delta) emit(InputAction::kSmoothTurn, delta);
+    if (delta) emit(kActionSmoothTurn, delta);
     if (!right) turn_ = 0;
   }
   if (e.pressed & NBT_GAMEPAD_MENU || (!menu && (e.pressed & NBT_GAMEPAD_EAST)))

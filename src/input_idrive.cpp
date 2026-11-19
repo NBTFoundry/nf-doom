@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#include "nbt_log.hpp"
+#include "nbt/app/log.hpp"
 
 namespace nbt_doom {
 
@@ -42,6 +42,7 @@ int prompt_answer_key(int key, bool yes_no_prompt) {
 IdriveDecoder::IdriveDecoder()
     : sink_(nullptr),
       input_(),
+      back_(),
       poll_now_ms_(0),
       poll_menu_mode_(false),
       held_up_(false),
@@ -54,32 +55,28 @@ IdriveDecoder::IdriveDecoder()
       held_fire_(false),
       held_menu_(false),
       prev_push_(false),
-      back_down_(false),
-      back_down_ms_(0),
-      back_menu_fired_(false),
-      last_short_tap_ms_(0),
       exit_requested_(false),
       tilt_mask_(0),
       last_menu_repeat_ms_(0) {
   settings_defaults(&settings_);
 }
 
-void IdriveDecoder::emit(IdriveAction::Type type, int value) {
+void IdriveDecoder::emit(int type, int value) {
   if (sink_) {
-    IdriveAction act = {type, value};
+    const InputAction act = {type, value};
     sink_->on_action(act);
   }
 }
 
 void IdriveDecoder::emit_tap(int key) {
-  emit(IdriveAction::kKeyDown, key);
-  emit(IdriveAction::kKeyUp, key);
+  emit(InputAction::kKeyDown, key);
+  emit(InputAction::kKeyUp, key);
 }
 
 void IdriveDecoder::update_held_key(bool* state, bool want, int key) {
   if (*state == want) return;
   *state = want;
-  emit(want ? IdriveAction::kKeyDown : IdriveAction::kKeyUp, key);
+  emit(want ? InputAction::kKeyDown : InputAction::kKeyUp, key);
 }
 
 void IdriveDecoder::release_strafe() {
@@ -165,25 +162,15 @@ void IdriveDecoder::apply_tilt(uint8_t dir_mask, uint64_t now_ms, bool menu_mode
 }
 
 void IdriveDecoder::apply_back(bool down, uint64_t now_ms, bool menu_mode) {
-  if (down && !back_down_) {
-    back_down_ = true;
-    back_down_ms_ = now_ms;
-    back_menu_fired_ = false;
-  } else if (!down && back_down_) {
-    uint64_t held = (now_ms >= back_down_ms_) ? (now_ms - back_down_ms_) : 0;
-    back_down_ = false;
-    if (!back_menu_fired_ && held < 400u) {
-      if (menu_mode) {
-        emit_tap(kDoomKeyBackspace);
-      } else if (last_short_tap_ms_ > 0 && now_ms >= last_short_tap_ms_ &&
-                 (now_ms - last_short_tap_ms_) < 350u) {
-        last_short_tap_ms_ = 0;
-        emit(IdriveAction::kNextWeapon, 1);
-      } else {
-        last_short_tap_ms_ = now_ms;
-        emit_tap(kDoomKeySpace);
-      }
-    }
+  switch (back_.update(down, now_ms, !menu_mode)) {
+    case nbt::app::BackGesture::kTap:
+      emit_tap(menu_mode ? kDoomKeyBackspace : kDoomKeySpace);
+      break;
+    case nbt::app::BackGesture::kDoubleTap:
+      emit(kActionNextWeapon, 1);
+      break;
+    default:
+      break;
   }
 }
 
@@ -196,16 +183,19 @@ void IdriveDecoder::update_timers(uint64_t now_ms, bool menu_mode) {
   if (menu_mode || (strafe_until_ms_ != 0 && now_ms >= strafe_until_ms_)) {
     release_strafe();
   }
-  if (back_down_ && now_ms >= back_down_ms_) {
-    uint64_t held = now_ms - back_down_ms_;
-    /* Exit cleanly before NBT Manager's 2000 ms forced-escape fault threshold. */
-    if (held >= 1400u && !exit_requested_) {
-      exit_requested_ = true;
-      emit(IdriveAction::kExit, 0);
-    } else if (held >= 600u && !back_menu_fired_) {
-      back_menu_fired_ = true;
+  /* The long hold exits cleanly before NBT Manager's own 2000 ms BACK escape. */
+  switch (back_.poll(now_ms)) {
+    case nbt::app::BackGesture::kLongHold:
+      if (!exit_requested_) {
+        exit_requested_ = true;
+        emit(kActionExit, 0);
+      }
+      break;
+    case nbt::app::BackGesture::kHold:
       emit_tap(kDoomKeyEscape);
-    }
+      break;
+    default:
+      break;
   }
   if (menu_mode && tilt_mask_ != 0 && last_menu_repeat_ms_ != 0 && now_ms >= last_menu_repeat_ms_ &&
       (now_ms - last_menu_repeat_ms_) >= 180u) {
@@ -220,10 +210,10 @@ void IdriveDecoder::update_timers(uint64_t now_ms, bool menu_mode) {
 void IdriveDecoder::apply(const nbt_controller_wire_state& state,
                           const nbt::controller::Event& event, uint64_t now_ms, bool menu_mode) {
   if (event.pressed || event.released) {
-    nbt_debug("controller keys=%08x pressed=%08x released=%08x link=%u menu=%d",
-              static_cast<unsigned>(state.keys), static_cast<unsigned>(event.pressed),
-              static_cast<unsigned>(event.released), static_cast<unsigned>(state.connected),
-              menu_mode ? 1 : 0);
+    nbt::app::log_debug("controller keys=%08x pressed=%08x released=%08x link=%u menu=%d",
+                        static_cast<unsigned>(state.keys), static_cast<unsigned>(event.pressed),
+                        static_cast<unsigned>(event.released),
+                        static_cast<unsigned>(state.connected), menu_mode ? 1 : 0);
   }
   apply_rotation(event.rotation, now_ms, menu_mode);
   apply_push((state.keys & NBT_CONTROLLER_PUSH) != 0, now_ms, menu_mode);
@@ -231,7 +221,7 @@ void IdriveDecoder::apply(const nbt_controller_wire_state& state,
   apply_menu_key((state.keys & NBT_CONTROLLER_MENU) != 0);
   apply_back((state.keys & NBT_CONTROLLER_BACK) != 0, now_ms, menu_mode);
   /* OPTION, which iDrive no longer sees while Doom is shown: the automap. */
-  if (event.pressed & NBT_CONTROLLER_OPTION) emit(IdriveAction::kAutomap, 0);
+  if (event.pressed & NBT_CONTROLLER_OPTION) emit(kActionAutomap, 0);
   /* Favourite keys 1-7: weapons 1-7 (PrBoom's default number keys). */
   for (int i = 0; i < 7; ++i) {
     if (event.pressed & NBT_CONTROLLER_FAVOURITE(i)) emit_tap('1' + i);

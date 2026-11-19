@@ -4,8 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "lifecycle.hpp"
-#include "input_actions.hpp"
+#include "doom_input.hpp"
+#include "doom_settings.hpp"
+#include "nbt/app/back_gesture.hpp"
 #include "nbt/controller/input.hpp"
 
 namespace nbt_doom {
@@ -17,13 +18,14 @@ int prompt_answer_key(int key, bool yes_no_prompt);
 
 /* The iDrive controller as NBT Manager decodes it (bridge capability
  * `controller`, NBT_CONTROLLER_FD): knob, push, tilt, the controller's keys
- * and the favourite keys, turned into Doom actions. */
+ * and the favourite keys, turned into Doom actions. BACK: tap = use (in a
+ * menu: back), double tap = next weapon, hold = menu, long hold = exit. */
 class IdriveDecoder {
  public:
   IdriveDecoder();
 
   void set_settings(const AppSettings& settings) { settings_ = settings; }
-  void set_sink(IdriveSink* sink) { sink_ = sink; }
+  void set_sink(InputSink* sink) { sink_ = sink; }
 
   /* One change of the controller's state (also what poll_socket delivers). */
   void apply(const nbt_controller_wire_state& state, const nbt::controller::Event& event,
@@ -45,11 +47,12 @@ class IdriveDecoder {
   void update_held_key(bool* state, bool want, int key);
   void release_strafe();
   void emit_tap(int key);
-  void emit(IdriveAction::Type type, int value);
+  void emit(int type, int value);
 
   AppSettings settings_;
-  IdriveSink* sink_;
+  InputSink* sink_;
   nbt::controller::Input input_;
+  nbt::app::BackGesture back_;
   uint64_t poll_now_ms_;
   bool poll_menu_mode_;
 
@@ -64,10 +67,6 @@ class IdriveDecoder {
   bool held_menu_;
   bool prev_push_;
 
-  bool back_down_;
-  uint64_t back_down_ms_;
-  bool back_menu_fired_;
-  uint64_t last_short_tap_ms_;
   bool exit_requested_;
   uint8_t tilt_mask_;
   uint64_t last_menu_repeat_ms_;

@@ -7,12 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "doom_settings.hpp"
+#include "nbt/app/log.hpp"
 #include "nbt/gles2/gles2_compat.h"
-#include "input_idrive.hpp"
-#include "lifecycle.hpp"
-#include "nbt_log.hpp"
 #include "nbt_platform.hpp"
-#include "video_egl.hpp"
 
 extern "C" {
 #include "d_event.h"
@@ -50,22 +48,17 @@ namespace nbt_doom {
 void platform_apply_settings(const AppSettings& settings) {
   PlatformState* st = platform_state();
   if (!st) return;
-  bool prev_dbg = nbt_log_debug_enabled();
-  nbt_log_set_debug(settings.debug_log);
+  bool prev_dbg = nbt::app::log_debug_enabled();
+  nbt::app::log_set_debug(settings.debug_log);
   if (settings.debug_log != prev_dbg) {
-    nbt_log("debug_log=%s", settings.debug_log ? "on" : "off");
+    nbt::app::log_info("debug_log=%s", settings.debug_log ? "on" : "off");
   }
-  nbt_debug("apply_settings turn=%d invert=%d bright=%d run=%d sound=%d fps=%d",
-            static_cast<int>(settings.turn_sens), settings.invert_turn ? 1 : 0, settings.brightness,
-            settings.always_run ? 1 : 0, settings.sound ? 1 : 0, settings.show_fps ? 1 : 0);
+  nbt::app::log_debug("apply_settings turn=%d invert=%d bright=%d run=%d sound=%d fps=%d",
+                      static_cast<int>(settings.turn_sens), settings.invert_turn ? 1 : 0,
+                      settings.brightness, settings.always_run ? 1 : 0, settings.sound ? 1 : 0,
+                      settings.show_fps ? 1 : 0);
   st->applied_settings = settings;
   st->settings_applied = true;
-
-  static const float kGammaLevels[5] = {0.85f, 1.00f, 1.15f, 1.30f, 1.45f};
-  int b = settings.brightness;
-  if (b < 0) b = 0;
-  if (b > 4) b = 4;
-  gles2_set_gamma(kGammaLevels[b]);
 
   autorun = settings.always_run ? 1 : 0;
   rendering_stats = settings.show_fps ? 1 : 0;
@@ -137,7 +130,7 @@ void SDL_GL_SwapWindow(SDL_Window* window) {
     st->video->swap();
     if (!s_swapped) {
       s_swapped = 1;
-      nbt_doom::nbt_log("first frame swapped");
+      nbt::app::log_info("first frame swapped");
     }
   }
 }
@@ -196,7 +189,7 @@ void I_UpdateVideoMode(void) {
   if (!st->video->ready()) {
     nbt_doom::AppSettings cfg;
     if (st->lifecycle) {
-      cfg = st->lifecycle->settings();
+      cfg = nbt_doom::doom_settings(*st->lifecycle);
     } else {
       nbt_doom::settings_defaults(&cfg);
     }
@@ -208,16 +201,16 @@ void I_UpdateVideoMode(void) {
   I_InitScreenResolution();
 
   if (!g_gl_inited) {
-    nbt_doom::nbt_log_stage("gld_Init");
+    nbt::app::log_stage("gld_Init");
     gld_Init(SCREENWIDTH, SCREENHEIGHT);
     g_gl_inited = 1;
-    nbt_doom::nbt_log_stage("running");
+    nbt::app::log_stage("running");
   } else {
     glViewport(0, 0, SCREENWIDTH, SCREENHEIGHT);
   }
 
   if (st->lifecycle && !st->settings_applied) {
-    nbt_doom::platform_apply_settings(st->lifecycle->settings());
+    nbt_doom::platform_apply_settings(nbt_doom::doom_settings(*st->lifecycle));
   }
   st->video->begin_frame();
 }

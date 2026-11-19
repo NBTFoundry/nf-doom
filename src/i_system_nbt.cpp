@@ -15,7 +15,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "nbt_log.hpp"
+#include "nbt/app/log.hpp"
 #include "nbt_platform.hpp"
 #include "wad_vfs.h"
 
@@ -242,7 +242,7 @@ void I_AtExit(atexit_func_t func, dboolean run_on_error) {
 }
 
 void I_SafeExit(int rc) {
-  nbt_doom::nbt_log("I_SafeExit rc=%d stage=%s", rc, nbt_doom::nbt_log_current_stage());
+  nbt::app::log_info("I_SafeExit rc=%d stage=%s", rc, nbt::app::log_current_stage());
   if (!g_in_exit) {
     g_in_exit = 1;
     nbt_atexit_entry_t* entry;
@@ -279,12 +279,12 @@ void I_Init(void) {
   }
 
   if (!(nomusicparm && nosfxparm)) {
-    nbt_doom::nbt_log_stage("I_InitSound");
+    nbt::app::log_stage("I_InitSound");
     I_InitSound();
   } else {
-    nbt_doom::nbt_log("I_InitSound skipped (nosound)");
+    nbt::app::log_info("I_InitSound skipped (nosound)");
   }
-  nbt_doom::nbt_log_stage("I_Init done");
+  nbt::app::log_stage("I_Init done");
   R_InitInterpolation();
 }
 

@@ -1,6 +1,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#include "nbt/app/clock.hpp"
 #include "nbt_platform.hpp"
 #include <stdio.h>
 extern "C" {
@@ -41,52 +42,52 @@ void post_mouse_turn(int delta) {
 }
 
 int translated_keys[512];  // POD; remember prompt translation until the matching release
-class NbtInputSink : public nbt_doom::IdriveSink {
+class NbtInputSink : public nbt_doom::InputSink {
  public:
-  void on_action(const nbt_doom::IdriveAction& action) {
+  void on_action(const nbt_doom::InputAction& action) {
     const bool prompt = messageToPrint && messageNeedsInput;
     switch (action.type) {
-      case nbt_doom::IdriveAction::kKeyDown:
+      case nbt_doom::InputAction::kKeyDown:
         if (action.value >= 0 && action.value < 512) {
           translated_keys[action.value] = nbt_doom::prompt_answer_key(
               action.value == nbt_doom::kDoomKeySpeed ? key_speed : action.value, prompt);
           post_key_event(true, translated_keys[action.value]);
         }
         break;
-      case nbt_doom::IdriveAction::kKeyUp:
+      case nbt_doom::InputAction::kKeyUp:
         if (action.value >= 0 && action.value < 512) {
           const int translated = translated_keys[action.value];
           post_key_event(false, translated ? translated : action.value);
           translated_keys[action.value] = 0;
         }
         break;
-      case nbt_doom::IdriveAction::kTurn:
+      case nbt_doom::kActionTurn:
         post_mouse_turn(action.value * 8);
         break;
-      case nbt_doom::IdriveAction::kNextWeapon:
+      case nbt_doom::kActionNextWeapon:
         post_key_tap(key_nextweapon);
         break;
-      case nbt_doom::IdriveAction::kPreviousWeapon:
+      case nbt_doom::kActionPreviousWeapon:
         post_key_tap(key_prevweapon);
         break;
-      case nbt_doom::IdriveAction::kAutomap:
+      case nbt_doom::kActionAutomap:
         post_key_tap(key_map);
         break;
-      case nbt_doom::IdriveAction::kSmoothTurn:
+      case nbt_doom::kActionSmoothTurn:
         post_mouse_turn(action.value);
         break;
-      case nbt_doom::IdriveAction::kExit:
+      default: /* kActionExit: the decoder stops the application */
         break;
     }
   }
 };
 
-nbt_doom::InputMixer* active_mixer = NULL;
+nbt::app::InputMixer* active_mixer = NULL;
 void keyboard_action(bool down, int key) {
   if (!active_mixer) return;
   const nbt_doom::InputAction action = {
       down ? nbt_doom::InputAction::kKeyDown : nbt_doom::InputAction::kKeyUp, key};
-  active_mixer->action(nbt_doom::InputMixer::Keyboard, action);
+  active_mixer->action(nbt_doom::kSourceKeyboard, action);
 }
 void keyboard_tap(int key) {
   keyboard_action(true, key);
@@ -107,7 +108,7 @@ bool g_prev_fire = false;
 /* File-scope POD: static storage duration zero-initializes every field cleanly. */
 nbt_doom::HostInputState g_host_in;
 
-void forward_host_input(const nbt_doom::HostInputState& in, nbt_doom::Lifecycle* lc) {
+void forward_host_input(const nbt_doom::HostInputState& in, nbt::app::Lifecycle* lc) {
   sync_key(&g_prev_fwd, in.forward, nbt_doom::kDoomKeyMoveForward);
   sync_key(&g_prev_back, in.backward, nbt_doom::kDoomKeyMoveBackward);
   sync_key(&g_prev_sl, in.strafe_left, nbt_doom::kDoomKeyStrafeLeft);
@@ -142,7 +143,7 @@ void I_StartTic(void) {
   nbt_doom::PlatformState* st = nbt_doom::platform_state();
   if (!st) return;
 
-  uint64_t now = nbt_doom::monotonic_ms();
+  uint64_t now = nbt::app::monotonic_ms();
   bool menu_mode = (menuactive != mnact_inactive) || (gamestate == GS_DEMOSCREEN);
 
   NbtInputSink output;
@@ -150,7 +151,7 @@ void I_StartTic(void) {
   st->input->set_sink(&output);
   active_mixer = st->input;
   if (st->idrive) {
-    nbt_doom::SourceSink sink(*st->input, nbt_doom::InputMixer::Idrive);
+    nbt_doom::SourceSink sink(*st->input, nbt_doom::kSourceIdrive);
     st->idrive->set_sink(&sink);
     if (st->lifecycle) st->idrive->poll_socket(st->lifecycle->controller_fd(), now, menu_mode);
     st->idrive->update_timers(now, menu_mode);
@@ -161,7 +162,7 @@ void I_StartTic(void) {
   }
 
   if (st->gamepad && st->lifecycle) {
-    nbt_doom::SourceSink sink(*st->input, nbt_doom::InputMixer::Gamepad);
+    nbt_doom::SourceSink sink(*st->input, nbt_doom::kSourceGamepad);
     st->gamepad->set_sink(&sink);
     st->gamepad->poll_socket(st->lifecycle->gamepad_fd(), now, menu_mode,
                              st->applied_settings.always_run, st->applied_settings.turn_sens);
@@ -178,16 +179,16 @@ void I_StartTic(void) {
     bool settings_changed = false;
     st->lifecycle->tick(now, status, &settings_changed);
     if (settings_changed) {
-      nbt_doom::platform_apply_settings(st->lifecycle->settings());
+      nbt_doom::platform_apply_settings(nbt_doom::doom_settings(*st->lifecycle));
     }
     if (st->lifecycle->consume_show_requested() && gamestate == GS_LEVEL &&
         menuactive == mnact_inactive) {
       post_key_tap(nbt_doom::kDoomKeyEscape);
     }
     if (st->lifecycle->stopping()) {
-      st->input->release(nbt_doom::InputMixer::Gamepad);
-      st->input->release(nbt_doom::InputMixer::Idrive);
-      st->input->release(nbt_doom::InputMixer::Keyboard);
+      st->input->release(nbt_doom::kSourceGamepad);
+      st->input->release(nbt_doom::kSourceIdrive);
+      st->input->release(nbt_doom::kSourceKeyboard);
       I_SafeExit(0);
     }
   }

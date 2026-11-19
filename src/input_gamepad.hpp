@@ -1,7 +1,7 @@
 #ifndef NBT_DOOM_INPUT_GAMEPAD_HPP
 #define NBT_DOOM_INPUT_GAMEPAD_HPP
-#include "input_actions.hpp"
-#include "lifecycle.hpp"
+#include "doom_input.hpp"
+#include "doom_settings.hpp"
 #include "nbt/gamepad/input.hpp"
 namespace nbt_doom {
 class GamepadDecoder {
@@ -21,7 +21,7 @@ class GamepadDecoder {
     TurnSensitivity turn_sens;
   };
   static void receive(void* context, const nbt_gamepad_wire_state& state);
-  void emit(InputAction::Type type, int value = 0);
+  void emit(int type, int value = 0);
   void key(unsigned index, bool down, int value);
   void tap(int value);
   nbt::gamepad::Input reader_;

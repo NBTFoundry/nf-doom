@@ -1,14 +1,12 @@
-#ifndef NBT_DOOM_VIDEO_EGL_HPP
-#define NBT_DOOM_VIDEO_EGL_HPP
+#ifndef NBT_DOOM_VIDEO_HPP
+#define NBT_DOOM_VIDEO_HPP
 
-#include <EGL/egl.h>
-#include <stdint.h>
-
-#include "lifecycle.hpp"
-#include "video_qnx.hpp"
+#include "doom_settings.hpp"
+#include "nbt/app/video.hpp"
 
 namespace nbt_doom {
 
+/* The host keyboard as Doom controls (desktop runs only). */
 struct HostInputState {
   int turn_delta;
   bool forward;
@@ -28,54 +26,42 @@ struct HostInputState {
   bool closed;
 };
 
+/* PrBoom+'s render size for a window: the window itself, at least 320x200. */
 void compute_logical_resolution(int win_w, int win_h, int* out_w, int* out_h);
 
-class VideoEgl {
+/* The SDK's window with Doom's rendering set-up: the GLES2 shim's batch,
+ * viewport mapping and gamma from the brightness setting. */
+class DoomVideo {
  public:
-  VideoEgl();
-  ~VideoEgl();
+  DoomVideo();
+  ~DoomVideo();
 
   bool init(int surface_id, const AppSettings& settings);
   void apply_settings(const AppSettings& settings);
-  void begin_frame();
-  void swap();
+  void begin_frame() {}
+  void swap() { video_.swap(); }
   void shutdown();
 
   void poll_host_events(HostInputState* out);
 
-  bool ready() const { return ready_; }
-  int window_width() const { return win_w_; }
-  int window_height() const { return win_h_; }
+  bool ready() const { return video_.ready() && batch_ready_; }
+  int window_width() const { return video_.window_width(); }
+  int window_height() const { return video_.window_height(); }
   int logical_width() const { return log_w_; }
   int logical_height() const { return log_h_; }
 
  private:
-  VideoEgl(const VideoEgl&);
-  VideoEgl& operator=(const VideoEgl&);
+  DoomVideo(const DoomVideo&);
+  DoomVideo& operator=(const DoomVideo&);
 
-  bool open_x11_window();
-  bool init_x11_egl();
   void update_viewport_mapping(const AppSettings& settings);
 
-  bool ready_;
-  int surface_id_;
-  int win_w_;
-  int win_h_;
+  nbt::app::VideoEgl video_;
+  bool batch_ready_;
   int log_w_;
   int log_h_;
-
-  EGLDisplay dpy_;
-  EGLSurface surf_;
-  EGLContext ctx_;
-
-#ifdef __QNXNTO__
-  QnxVideoState qnx_;
-#else
-  void* x_dpy_;
-  uintptr_t x_win_;
-#endif
 };
 
 }  // namespace nbt_doom
 
-#endif /* NBT_DOOM_VIDEO_EGL_HPP */
+#endif /* NBT_DOOM_VIDEO_HPP */
