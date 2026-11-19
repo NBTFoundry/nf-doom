@@ -9,8 +9,8 @@ PRBOOM_DATA := third_party/prboom-plus/prboom2/data
 DOOM1_WAD ?= $(or $(wildcard assets/doom1.wad),$(wildcard doom1.wad),assets/doom1.wad)
 HAS_DOOM1_WAD := $(wildcard $(DOOM1_WAD))
 
-APP_VERSION ?= 1.0.18
-APP_SEQ ?= 19
+APP_VERSION ?= 1.0.19
+APP_SEQ ?= 20
 APP_KEY ?=
 # Sibling NBTFoundry checkouts; override as needed. The SDK is built into
 # $(BUILD_DIR)/sdk; the manager is only needed for packaging.
@@ -78,6 +78,7 @@ OUR_CXX := \
 	src/doom_settings.cpp \
 	src/doom_log.cpp \
 	src/doom_video.cpp \
+	src/doom_controls.cpp \
 	src/input_idrive.cpp \
 	src/input_gamepad.cpp \
 	src/i_system_nbt.cpp \
@@ -207,7 +208,7 @@ $(OBJ_DIR)/host/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_
 
 doom-host: $(BUILD_DIR)/nbt-doom-host
 
-$(BUILD_DIR)/nbt-doom-host: $(HOST_PRBOOM_OBJ) $(HOST_OUR_OBJ) $(NBT_SDK_HOST_LIBS)
+$(BUILD_DIR)/nbt-doom-host: $(HOST_PRBOOM_OBJ) $(HOST_OUR_OBJ) $(NBT_SDK_FRONT_HOST_LIBS)
 	$(CXX) $^ $(LDFLAGS) $(NBT_SDK_HOST_LDLIBS) -o $@
 
 run-doom-host: $(BUILD_DIR)/nbt-doom-host
@@ -220,6 +221,7 @@ UNIT_CXX_SRC := \
 	src/doom_settings.cpp \
 	src/doom_log.cpp \
 	src/doom_video.cpp \
+	src/doom_controls.cpp \
 	src/input_idrive.cpp \
 	src/input_gamepad.cpp
 
@@ -233,15 +235,15 @@ $(OBJ_DIR)/host/tests/doom_test.o: tests/doom_test.cpp
 $(BUILD_DIR)/doom-unit-test: $(OBJ_DIR)/host/tests/doom_test.o \
 		$(patsubst %.cpp,$(OBJ_DIR)/host/%.o,$(UNIT_CXX_SRC)) \
 		$(patsubst %.c,$(OBJ_DIR)/host/%.o,$(UNIT_C_SRC)) \
-		$(OBJ_DIR)/host/wad_embed.o $(NBT_SDK_HOST_LIBS)
+		$(OBJ_DIR)/host/wad_embed.o $(NBT_SDK_FRONT_HOST_LIBS)
 	$(CXX) $^ $(LDFLAGS) $(NBT_SDK_HOST_LDLIBS) -o $@
 
-$(BUILD_DIR)/doom-unit-asan: $(wildcard src/*.hpp) tests/doom_test.cpp $(UNIT_CXX_SRC) $(UNIT_C_SRC) src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) $(NBT_SDK_ASAN_LIBS)
+$(BUILD_DIR)/doom-unit-asan: $(wildcard src/*.hpp) tests/doom_test.cpp $(UNIT_CXX_SRC) $(UNIT_C_SRC) src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) $(NBT_SDK_FRONT_ASAN_LIBS)
 	$(CXX) $(COMMON_INC) $(COMMON_DEFS) -std=c++11 -O1 -g -fno-exceptions -fno-rtti \
 		-fsanitize=address,undefined -fno-omit-frame-pointer \
 		$(WAD_ASM_FLAGS) \
 		tests/doom_test.cpp $(UNIT_CXX_SRC) $(UNIT_C_SRC) src/wad_embed.S \
-		$(NBT_SDK_ASAN_LIBS) $(NBT_SDK_HOST_LDLIBS) -o $@
+		$(NBT_SDK_FRONT_ASAN_LIBS) $(NBT_SDK_HOST_LDLIBS) -o $@
 
 test: doom-host $(BUILD_DIR)/doom-unit-test
 	$(BUILD_DIR)/doom-unit-test
@@ -319,9 +321,9 @@ $(OBJ_DIR)/qnx/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_D
 	@mkdir -p $(dir $@)
 	. "$(QNX_ENV)" && $(QCC) $(QNX_C_VARIANT) $(WAD_ASM_FLAGS) -c src/wad_embed.S -o $@
 
-$(BUILD_DIR)/nbt-doom-qnx-unstripped: $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_QNX_LIBS) | qnx-env
+$(BUILD_DIR)/nbt-doom-qnx-unstripped: $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_FRONT_QNX_LIBS) | qnx-env
 	@test -n "$(QNX_SCREEN_LIBDIR)" || { echo "QNX_SCREEN_LIBDIR is not set (directory with libscreen.so)"; exit 1; }
-	. "$(QNX_ENV)" && $(QCC) $(QNX_CPP_VARIANT) -lang-c++ $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_QNX_LIBS) -L$(QNX_SCREEN_LIBDIR) $(NBT_SDK_QNX_LDFLAGS) $(NBT_SDK_QNX_LDLIBS) -o $@
+	. "$(QNX_ENV)" && $(QCC) $(QNX_CPP_VARIANT) -lang-c++ $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_FRONT_QNX_LIBS) -L$(QNX_SCREEN_LIBDIR) $(NBT_SDK_QNX_LDFLAGS) $(NBT_SDK_QNX_LDLIBS) -o $@
 
 $(BUILD_DIR)/nbt-doom-qnx: $(BUILD_DIR)/nbt-doom-qnx-unstripped
 	. "$(QNX_ENV)" && $(QNX_STRIP) -o $@ $<
@@ -346,7 +348,7 @@ doom-package: qnx
 		--sequence "$(APP_SEQ)" \
 		--compat nbt_6.5_armv7 \
 		--key "$(APP_KEY)" \
-		--bridge 1.4 \
+		--bridge 1.5 \
 		--bridge-uses show,controller \
 		--bridge-optional status,live-settings,gamepad \
 		--setting "turn_sens|Turn Sensitivity|medium|low,medium,high" \

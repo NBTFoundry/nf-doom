@@ -434,6 +434,25 @@ void test_gamepad() {
   rec.clear();
   close(sockets[0]);
   close(sockets[1]);
+  /* The pad's family (bridge 1.5): its profile, by position, and one change
+   * for the notice when it is plugged in or out. */
+  GamepadDecoder family;
+  rec.clear();
+  family.set_sink(&rec);
+  CHECK(family.pad_family() == -1 && !family.take_pad_change());
+  st = nbt_gamepad_wire_state();
+  st.connected = 1;
+  st.family = NBT_GAMEPAD_FAMILY_DUALSENSE;
+  st.buttons = NBT_GAMEPAD_WEST; /* Square */
+  family.update(st, 1000, false, false);
+  CHECK(family.take_pad_change() && !family.take_pad_change());
+  CHECK(family.pad_family() == static_cast<int>(NBT_GAMEPAD_FAMILY_DUALSENSE));
+  CHECK(rec.count == 1 && rec.items[0].value == kDoomKeyRCtrl);
+  st.connected = 0;
+  st.buttons = 0;
+  family.update(st, 1010, false, false);
+  CHECK(family.take_pad_change() && family.pad_family() == -1);
+  CHECK(rec.count == 2 && rec.items[1].type == InputAction::kKeyUp);
   g_tests_run++;
 }
 

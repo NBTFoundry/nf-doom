@@ -3,11 +3,18 @@
 
 #include <stdio.h>
 
+#include "doom_controls.hpp"
 #include "nbt/app/log.hpp"
 
 namespace nbt_doom {
 
 namespace {
+
+/* The key the profile holds for one of the controller's keys in a level. */
+int held_key(uint32_t control) {
+  const nbt::frontend::ControllerProfile& p = doom_controller_profile().keys;
+  return binding_action(p.keys, p.key_count, control);
+}
 
 constexpr uint8_t kTiltUp = 0x01;
 constexpr uint8_t kTiltRight = 0x02;
@@ -81,8 +88,9 @@ void IdriveDecoder::update_held_key(bool* state, bool want, int key) {
 }
 
 void IdriveDecoder::release_strafe() {
-  update_held_key(&held_strafe_left_, false, kDoomKeyStrafeLeft);
-  update_held_key(&held_strafe_right_, false, kDoomKeyStrafeRight);
+  const nbt::frontend::ControllerProfile& p = doom_controller_profile().keys;
+  update_held_key(&held_strafe_left_, false, p.turn_left);
+  update_held_key(&held_strafe_right_, false, p.turn_right);
   strafe_until_ms_ = 0;
 }
 
@@ -97,45 +105,52 @@ void IdriveDecoder::apply_rotation(int delta, uint64_t now_ms, bool menu_mode) {
     int key = (delta > 0) ? kDoomKeyDown : kDoomKeyUp;
     for (int i = 0; i < steps; ++i) emit_tap(key);
   } else {
+    /* The profile's turn keys, held longer for each detent (Turn Sensitivity). */
+    const nbt::frontend::ControllerProfile& p = doom_controller_profile().keys;
     int abs_delta = delta > 0 ? delta : -delta;
     if (abs_delta > 4) abs_delta = 4;
     uint64_t step_ms = static_cast<uint64_t>(abs_delta) * strafe_step_ms(settings_.turn_sens);
     bool want_right = delta > 0;
     if (want_right) {
-      update_held_key(&held_strafe_left_, false, kDoomKeyStrafeLeft);
+      update_held_key(&held_strafe_left_, false, p.turn_left);
       uint64_t base = (held_strafe_right_ && strafe_until_ms_ > now_ms) ? strafe_until_ms_ : now_ms;
       uint64_t next_until = base + step_ms;
       if (next_until > now_ms + kStrafeMaxHoldMs) next_until = now_ms + kStrafeMaxHoldMs;
       strafe_until_ms_ = next_until;
-      update_held_key(&held_strafe_right_, true, kDoomKeyStrafeRight);
+      update_held_key(&held_strafe_right_, true, p.turn_right);
     } else {
-      update_held_key(&held_strafe_right_, false, kDoomKeyStrafeRight);
+      update_held_key(&held_strafe_right_, false, p.turn_right);
       uint64_t base = (held_strafe_left_ && strafe_until_ms_ > now_ms) ? strafe_until_ms_ : now_ms;
       uint64_t next_until = base + step_ms;
       if (next_until > now_ms + kStrafeMaxHoldMs) next_until = now_ms + kStrafeMaxHoldMs;
       strafe_until_ms_ = next_until;
-      update_held_key(&held_strafe_left_, true, kDoomKeyStrafeLeft);
+      update_held_key(&held_strafe_left_, true, p.turn_left);
     }
   }
 }
 
 void IdriveDecoder::apply_push(bool down, uint64_t now_ms, bool menu_mode) {
   (void)now_ms;
+  const int fire = held_key(NBT_CONTROLLER_PUSH);
   if (menu_mode) {
-    update_held_key(&held_fire_, false, kDoomKeyRCtrl);
+    update_held_key(&held_fire_, false, fire);
     if (down && !prev_push_) emit_tap(kDoomKeyEnter);
   } else {
-    update_held_key(&held_fire_, down, kDoomKeyRCtrl);
+    update_held_key(&held_fire_, down, fire);
   }
   prev_push_ = down;
 }
 
 void IdriveDecoder::apply_tilt(uint8_t dir_mask, uint64_t now_ms, bool menu_mode) {
+  const int forward = held_key(NBT_CONTROLLER_TILT_UP);
+  const int backward = held_key(NBT_CONTROLLER_TILT_DOWN);
+  const int left = held_key(NBT_CONTROLLER_TILT_LEFT);
+  const int right = held_key(NBT_CONTROLLER_TILT_RIGHT);
   if (menu_mode) {
-    update_held_key(&held_up_, false, kDoomKeyMoveForward);
-    update_held_key(&held_down_, false, kDoomKeyMoveBackward);
-    update_held_key(&held_left_, false, kDoomKeyLeft);
-    update_held_key(&held_right_, false, kDoomKeyRight);
+    update_held_key(&held_up_, false, forward);
+    update_held_key(&held_down_, false, backward);
+    update_held_key(&held_left_, false, left);
+    update_held_key(&held_right_, false, right);
     release_strafe();
     uint8_t pressed = static_cast<uint8_t>(dir_mask & ~tilt_mask_);
     if (pressed & kTiltUp) emit_tap(kDoomKeyUp);
@@ -147,8 +162,8 @@ void IdriveDecoder::apply_tilt(uint8_t dir_mask, uint64_t now_ms, bool menu_mode
     else if (pressed != 0)
       last_menu_repeat_ms_ = now_ms;
   } else {
-    update_held_key(&held_up_, (dir_mask & kTiltUp) != 0, kDoomKeyMoveForward);
-    update_held_key(&held_down_, (dir_mask & kTiltDown) != 0, kDoomKeyMoveBackward);
+    update_held_key(&held_up_, (dir_mask & kTiltUp) != 0, forward);
+    update_held_key(&held_down_, (dir_mask & kTiltDown) != 0, backward);
     bool want_left = (dir_mask & kTiltLeft) != 0;
     bool want_right = (dir_mask & kTiltRight) != 0;
     if (settings_.invert_turn) {
@@ -156,8 +171,8 @@ void IdriveDecoder::apply_tilt(uint8_t dir_mask, uint64_t now_ms, bool menu_mode
       want_left = want_right;
       want_right = tmp;
     }
-    update_held_key(&held_left_, want_left, kDoomKeyLeft);
-    update_held_key(&held_right_, want_right, kDoomKeyRight);
+    update_held_key(&held_left_, want_left, left);
+    update_held_key(&held_right_, want_right, right);
   }
   tilt_mask_ = dir_mask;
 }
@@ -165,7 +180,7 @@ void IdriveDecoder::apply_tilt(uint8_t dir_mask, uint64_t now_ms, bool menu_mode
 void IdriveDecoder::apply_back(bool down, uint64_t now_ms, bool menu_mode) {
   switch (back_.update(down, now_ms, !menu_mode)) {
     case nbt::app::BackGesture::kTap:
-      emit_tap(menu_mode ? kDoomKeyBackspace : kDoomKeySpace);
+      emit_tap(menu_mode ? kDoomKeyBackspace : doom_controller_profile().keys.back_tap);
       break;
     case nbt::app::BackGesture::kDoubleTap:
       emit(kActionNextWeapon, 1);
@@ -219,13 +234,16 @@ void IdriveDecoder::apply(const nbt_controller_wire_state& state,
   apply_rotation(event.rotation, now_ms, menu_mode);
   apply_push((state.keys & NBT_CONTROLLER_PUSH) != 0, now_ms, menu_mode);
   apply_tilt(tilt_mask(state.keys), now_ms, menu_mode);
-  apply_menu_key((state.keys & NBT_CONTROLLER_MENU) != 0);
+  const DoomControllerProfile& p = doom_controller_profile();
+  apply_menu_key((state.keys & p.keys.menu_keys) != 0);
   apply_back((state.keys & NBT_CONTROLLER_BACK) != 0, now_ms, menu_mode);
-  /* OPTION, which iDrive no longer sees while Doom is shown: the automap. */
-  if (event.pressed & NBT_CONTROLLER_OPTION) emit(kActionAutomap, 0);
-  /* Favourite keys 1-7: weapons 1-7 (PrBoom's default number keys). */
-  for (int i = 0; i < 7; ++i) {
-    if (event.pressed & NBT_CONTROLLER_FAVOURITE(i)) emit_tap('1' + i);
+  /* The profile's actions (OPTION: the automap) and taps (favourite keys:
+   * weapons), once a press. */
+  for (size_t i = 0; i < p.action_count; ++i) {
+    if (event.pressed & p.actions[i].control) emit(p.actions[i].action, 0);
+  }
+  for (size_t i = 0; i < p.tap_count; ++i) {
+    if (event.pressed & p.taps[i].control) emit_tap(p.taps[i].action);
   }
 }
 

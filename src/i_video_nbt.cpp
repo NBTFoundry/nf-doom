@@ -62,7 +62,7 @@ void platform_apply_settings(const AppSettings& settings) {
   st->settings_applied = true;
 
   autorun = settings.always_run ? 1 : 0;
-  rendering_stats = settings.show_fps ? 1 : 0;
+  rendering_stats = 0; /* Show FPS: the overlay's counter (DoomVideo::apply_settings) */
 
   if (st->sound) st->sound->set_muted(!settings.sound);
   if (st->idrive) st->idrive->set_settings(settings);

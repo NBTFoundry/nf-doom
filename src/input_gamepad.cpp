@@ -1,7 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "input_gamepad.hpp"
+
+#include "doom_controls.hpp"
+
 namespace nbt_doom {
 namespace {
+/* The keys a pad holds in a level, in the order their changes are sent. */
+const int kHeld[] = {kDoomKeyMoveForward, kDoomKeyMoveBackward, kDoomKeyStrafeLeft,
+                     kDoomKeyStrafeRight, kDoomKeyRCtrl,        kDoomKeySpace,
+                     kDoomKeySpeed};
+const unsigned kHeldCount = sizeof(kHeld) / sizeof(kHeld[0]);
+
+void hold(bool (&want)[kHeldCount], int key) {
+  for (unsigned i = 0; i < kHeldCount; ++i) {
+    if (kHeld[i] == key) want[i] = true;
+  }
+}
+
 int64_t turn_rate_units_per_sec(TurnSensitivity sens) {
   /* cmd->angleturn maps 65536 units to 360 deg (angleturn[0]=640, [1]=1280 per 35Hz tic). */
   if (sens == kTurnLow) return 22400;
@@ -19,7 +34,14 @@ GamepadDecoder::GamepadDecoder()
       run_(false),
       menu_(false),
       previous_(0),
-      turn_(0) {}
+      turn_(0),
+      family_(-1),
+      family_changed_(false) {}
+bool GamepadDecoder::take_pad_change() {
+  const bool changed = family_changed_;
+  family_changed_ = false;
+  return changed;
+}
 void GamepadDecoder::emit(int type, int value) {
   if (sink_) {
     const InputAction a = {type, value};
@@ -54,19 +76,34 @@ void GamepadDecoder::update(const nbt_gamepad_wire_state& s, uint64_t now, bool 
     turn_ = 0;
   }
   menu_ = menu;
+  const int family = s.connected ? static_cast<int>(s.family) : -1;
+  if (family != family_) {
+    family_ = family;
+    family_changed_ = true;
+  }
+  const DoomPadProfile& p = doom_pad_profile(s.connected ? s.family : 0);
   const nbt::gamepad::NavigationEvent e = navigation_.update(s, now);
   const uint32_t b = s.connected ? s.buttons : 0;
   fire_ = s.connected && s.rt >= (fire_ ? 13107 : 16384);
   run_ = s.connected && s.lt >= (run_ ? 13107 : 16384);
   const int x = s.connected ? nbt_gamepad_axis(s.lx, 6553) : 0;
   const int y = s.connected ? nbt_gamepad_axis(s.ly, 6553) : 0;
-  key(0, !menu && (y > 0 || (b & NBT_GAMEPAD_UP)), kDoomKeyMoveForward);
-  key(1, !menu && (y < 0 || (b & NBT_GAMEPAD_DOWN)), kDoomKeyMoveBackward);
-  key(2, !menu && (x < 0 || (b & NBT_GAMEPAD_LEFT)), kDoomKeyStrafeLeft);
-  key(3, !menu && (x > 0 || (b & NBT_GAMEPAD_RIGHT)), kDoomKeyStrafeRight);
-  key(4, !menu && (fire_ || (b & NBT_GAMEPAD_WEST)), kDoomKeyRCtrl);
-  key(5, !menu && (b & NBT_GAMEPAD_SOUTH), kDoomKeySpace);
-  key(6, !menu && !always_run && (run_ || (b & NBT_GAMEPAD_LS)), kDoomKeySpeed);
+  /* In a level, the profile's keys: buttons, the left stick, the triggers. */
+  bool want[kHeldCount] = {false, false, false, false, false, false, false};
+  if (!menu) {
+    for (size_t i = 0; i < p.held.button_count; ++i) {
+      if (b & p.held.buttons[i].control) hold(want, p.held.buttons[i].action);
+    }
+    if (y > 0) hold(want, p.held.stick_up);
+    if (y < 0) hold(want, p.held.stick_down);
+    if (x < 0) hold(want, p.held.stick_left);
+    if (x > 0) hold(want, p.held.stick_right);
+    if (run_) hold(want, p.held.left_trigger);
+    if (fire_) hold(want, p.held.right_trigger);
+  }
+  for (unsigned i = 0; i < kHeldCount; ++i) {
+    key(i, want[i] && !(always_run && kHeld[i] == kDoomKeySpeed), kHeld[i]);
+  }
   if (menu) {
     const uint32_t nav = e.pressed | e.repeated;
     if (nav & NBT_GAMEPAD_UP) tap(kDoomKeyUp);
@@ -76,9 +113,9 @@ void GamepadDecoder::update(const nbt_gamepad_wire_state& s, uint64_t now, bool 
     if (e.pressed & NBT_GAMEPAD_SOUTH) tap(kDoomKeyEnter);
     if (e.pressed & NBT_GAMEPAD_EAST) tap(kDoomKeyBackspace);
   } else {
-    if (e.pressed & NBT_GAMEPAD_LB) emit(kActionPreviousWeapon);
-    if (e.pressed & NBT_GAMEPAD_RB) emit(kActionNextWeapon);
-    if (e.pressed & (NBT_GAMEPAD_NORTH | NBT_GAMEPAD_VIEW)) emit(kActionAutomap);
+    for (size_t i = 0; i < p.action_count; ++i) {
+      if (e.pressed & p.actions[i].control) emit(p.actions[i].action);
+    }
     const int right = s.connected ? nbt_gamepad_axis(s.rx, 6553) : 0;
     turn_ += static_cast<int64_t>(right) * static_cast<int64_t>(elapsed) *
              turn_rate_units_per_sec(turn_sens);

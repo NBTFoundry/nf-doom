@@ -75,8 +75,13 @@ triggers press at 25% and release at 20%. Keys held by different sources are
 combined, so unplugging a pad never releases a key the iDrive controller still
 holds. A disconnect, lost focus, a malformed state or 500 ms without one clears
 the gamepad's keys, and controls held while a pad connects count only once it
-was seen neutral. Which pads are supported is up to NBT Manager
-(`NBTFoundry/manager: docs/gamepad-bridge.md`).
+was seen neutral. A notice names the pad when it is plugged in (Xbox
+controller, DualShock 4, DualSense) and says when it is removed. Which pads are
+supported is up to NBT Manager (`NBTFoundry/manager: docs/gamepad-bridge.md`).
+
+The bindings are tables in the NBT App SDK front end's profile format
+(`src/doom_controls.cpp`): one per pad family, laid out by button position,
+and one for the iDrive controller.
 
 ### Desktop keyboard (host build)
 
@@ -96,7 +101,7 @@ Changed from the phone app or NBT Manager's settings page; most apply at once
 | Brightness | 0–4 | 2 |
 | Always Run | off, on | on |
 | Sound | off, on | on |
-| Show FPS | off, on | off |
+| Show FPS | off, on (frames per second, top right) | off |
 | Debug log | off, on | off |
 
 Volume follows the car's own volume; Doom's **Options → Sound Volume** (effects
@@ -105,8 +110,9 @@ Doom's data folder.
 
 ## Bridge
 
-The package declares bridge 1.4 with capabilities `show` and `controller`
-required, `status`, `live-settings` and `gamepad` optional. Doom reports
+The package declares bridge 1.5 with capabilities `show` and `controller`
+required, `status`, `live-settings` and `gamepad` optional; bridge 1.5 gives
+the pad's family. Doom reports
 `E1M1 H:100%`, `Menu` or `DOOM Shareware` as its status. NBT Manager keeps its
 standard output and error as Doom's log (`state/doom/output.log`, shown, shared and
 cleared from the phone app). A crash adds a line
@@ -159,8 +165,8 @@ with libwebp and ImageMagick).
 | `src/wad_vfs.*`, `src/wad_embed*` | WADs embedded in `.rodata` and the `/embedded/*` file system |
 | `src/i_*_nbt.cpp`, `src/main.cpp` | PrBoom+'s platform layer on the SDK |
 | `src/doom_settings.*` | Doom's settings and their mapping from the manager's values |
-| `src/doom_video.*` | Logical resolution, gamma, the GLES2 batch, host keyboard |
-| `src/doom_input.hpp`, `src/input_idrive.*`, `src/input_gamepad.*` | Key codes and the controller and gamepad mappings |
+| `src/doom_video.*` | Logical resolution, gamma, the GLES2 batch, the overlay (notices, FPS), host keyboard |
+| `src/doom_input.hpp`, `src/doom_controls.*`, `src/input_idrive.*`, `src/input_gamepad.*` | Key codes, the bindings per pad family and for the controller, and their decoders |
 | `src/doom_log.*` | Log start-up |
 | `tests/` | Unit tests (`doom_test.cpp`) and integration tests (`test_doom.py`) |
 | `tools/` | README capture script |

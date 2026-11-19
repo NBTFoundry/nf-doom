@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "doom_video.hpp"
 
+#include <stdio.h>
 #include <string.h>
 
+#include "nbt/app/clock.hpp"
 #include "nbt/app/log.hpp"
 #include "nbt/gles2/gles2_compat.h"
 
@@ -38,7 +40,60 @@ void compute_logical_resolution(int win_w, int win_h, int* out_w, int* out_h) {
   *out_h = h;
 }
 
-DoomVideo::DoomVideo() : batch_ready_(false), log_w_(640), log_h_(480) {}
+DoomVideo::DoomVideo()
+    : batch_ready_(false),
+      overlay_ready_(false),
+      show_fps_(false),
+      log_w_(640),
+      log_h_(480),
+      frames_(0),
+      fps_(0),
+      fps_since_ms_(0),
+      notice_until_ms_(0) {
+  notice_[0] = '\0';
+}
+
+void DoomVideo::notice(const char* text, uint64_t now_ms) {
+  snprintf(notice_, sizeof(notice_), "%s", text ? text : "");
+  notice_until_ms_ = now_ms + 3000;
+  nbt::app::log_info("%s", notice_);
+}
+
+void DoomVideo::draw_overlay(uint64_t now_ms) {
+  const bool fps = show_fps_;
+  const bool note = notice_[0] && now_ms < notice_until_ms_;
+  if (!overlay_ready_ || (!fps && !note)) return;
+  const int w = video_.window_width(), h = video_.window_height();
+  const int scale = nbt::frontend::Overlay::scale_for(h);
+  const int line = nbt::frontend::Overlay::kGlyph * scale;
+  overlay_.begin(w, h);
+  if (fps) {
+    char text[16];
+    snprintf(text, sizeof(text), "%u fps", fps_);
+    const int tw = nbt::frontend::Overlay::text_width(text, scale);
+    overlay_.box(w - tw - line, line / 2, tw + line / 2, line + line / 2, 0x00000099u);
+    overlay_.text(w - tw - line * 3 / 4, line * 3 / 4, scale, text, 0xffffffffu);
+  }
+  if (note) {
+    const int tw = nbt::frontend::Overlay::text_width(notice_, scale);
+    const int x = (w - tw) / 2, y = h - 3 * line;
+    overlay_.box(x - line, y - line / 2, tw + 2 * line, 2 * line, 0x000000c0u);
+    overlay_.text(x, y, scale, notice_, 0xffffffffu);
+  }
+  overlay_.end();
+}
+
+void DoomVideo::swap() {
+  const uint64_t now = nbt::app::monotonic_ms();
+  ++frames_;
+  if (now - fps_since_ms_ >= 1000) {
+    fps_ = frames_;
+    frames_ = 0;
+    fps_since_ms_ = now;
+  }
+  draw_overlay(now);
+  video_.swap();
+}
 
 DoomVideo::~DoomVideo() {
   shutdown();
@@ -64,15 +119,24 @@ bool DoomVideo::init(int surface_id, const AppSettings& settings) {
     return false;
   }
   batch_ready_ = true;
+  /* Notices and the FPS counter only: Doom plays without them. */
+  overlay_ready_ = overlay_.init();
+  if (!overlay_ready_) nbt::app::log_info("overlay unavailable");
+  show_fps_ = settings.show_fps;
   return true;
 }
 
 void DoomVideo::apply_settings(const AppSettings& settings) {
+  show_fps_ = settings.show_fps;
   if (!ready()) return;
   update_viewport_mapping(settings);
 }
 
 void DoomVideo::shutdown() {
+  if (overlay_ready_) {
+    overlay_.shutdown(); /* while the context is still current */
+    overlay_ready_ = false;
+  }
   if (batch_ready_) {
     gles2_batch_shutdown(); /* while the context is still current */
     batch_ready_ = false;

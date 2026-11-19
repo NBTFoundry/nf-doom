@@ -7,7 +7,7 @@ Copyright (c) 2026 Fabien Poussin
 Original software: GPL-2.0-or-later. You may redistribute and modify it under that license.
 This software comes WITHOUT ANY WARRANTY, to the extent permitted by law.
 Original NBTFoundry artwork: MPL-2.0. Trademark rights are separate.
-Source: https://github.com/NBTFoundry/doom
+Source: https://github.com/NBTFoundry/nf-doom
 When redistributing binaries, include applicable notices and provide the source required by the component licenses.
 
 Development notices; release blockers:
@@ -1142,3 +1142,10 @@ MA 02111, USA
 
 Updated: 16 Feb 1998 tower 
 
+========================================================================
+
+font8x8 (8x8 bitmap glyphs), in the NBT App SDK front end's overlay (notices, Show FPS)
+https://github.com/dhepper/font8x8
+
+Author: Daniel Hepper. Derived from font8_8.asm by Marcel Sondaar and the
+VGA fonts of International Business Machines. License: Public Domain.

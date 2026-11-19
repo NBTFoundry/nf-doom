@@ -255,7 +255,7 @@ class NbtDoomIntegrationTest(unittest.TestCase):
                     "--key",
                     str(priv),
                     "--bridge",
-                    "1.4",
+                    "1.5",
                     "--bridge-uses",
                     "show,controller",
                     "--bridge-optional",
@@ -288,7 +288,7 @@ class NbtDoomIntegrationTest(unittest.TestCase):
                 text=True,
             )
             self.assertIn("app=doom\n", v.stdout)
-            self.assertIn("bridge=1.4\n", v.stdout)
+            self.assertIn("bridge=1.5\n", v.stdout)
             self.assertIn("bridge-uses=show,controller\n", v.stdout)
             self.assertIn("bridge-optional=status,live-settings,gamepad\n", v.stdout)
             self.assertNotIn("bridge-most", v.stdout)

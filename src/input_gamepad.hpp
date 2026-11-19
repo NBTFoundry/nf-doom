@@ -13,6 +13,10 @@ class GamepadDecoder {
                    TurnSensitivity turn_sens = kTurnMedium);
   void update(const nbt_gamepad_wire_state& state, uint64_t now, bool menu, bool always_run,
               TurnSensitivity turn_sens = kTurnMedium);
+  /* The pad in use: its NBT_GAMEPAD_FAMILY_* (bridge 1.5), -1 with none. */
+  int pad_family() const { return family_; }
+  /* True once after a pad was connected, changed family or was unplugged. */
+  bool take_pad_change();
 
  private:
   struct Delivery {
@@ -31,6 +35,8 @@ class GamepadDecoder {
   bool held_[7], fire_, run_, menu_;
   uint64_t previous_;
   int64_t turn_;
+  int family_;
+  bool family_changed_;
 };
 }  // namespace nbt_doom
 #endif

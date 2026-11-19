@@ -3,6 +3,7 @@
 #include "config.h"
 #endif
 #include "nbt/app/clock.hpp"
+#include "nbt/frontend/hints.hpp"
 #include "nbt_platform.hpp"
 #include <stdio.h>
 extern "C" {
@@ -168,6 +169,17 @@ void I_StartTic(void) {
     st->gamepad->poll_socket(st->lifecycle->gamepad_fd(), now, menu_mode,
                              st->applied_settings.always_run, st->applied_settings.turn_sens);
     st->gamepad->set_sink(NULL);
+    /* The pad's own name when it is plugged in (bridge 1.5 gives its family). */
+    if (st->gamepad->take_pad_change() && st->video) {
+      char text[64];
+      const int family = st->gamepad->pad_family();
+      if (family >= 0) {
+        snprintf(text, sizeof(text), "%s connected", nbt::frontend::input_name(family));
+      } else {
+        snprintf(text, sizeof(text), "Gamepad unplugged: the iDrive controller plays");
+      }
+      st->video->notice(text, now);
+    }
   }
   if (st->video) {
     st->video->poll_host_events(&g_host_in);
