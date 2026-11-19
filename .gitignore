@@ -1,0 +1,11 @@
+build/
+*.o
+*.d
+*.a
+*.su
+*.nbt
+*.wad
+!assets/doom1.wad
+.DS_Store
+__pycache__/
+*.pyc
