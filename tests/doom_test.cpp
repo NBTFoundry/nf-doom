@@ -12,8 +12,8 @@
 #include <unistd.h>
 
 #include "audio_route_qnx.hpp"
-#include "gles2/gles2_compat.h"
-#include "gles2/gles2_matrix.h"
+#include "nbt/gles2/gles2_compat.h"
+#include "nbt/gles2/gles2_matrix.h"
 #include "input_idrive.hpp"
 #include "lifecycle.hpp"
 #include "nbt_log.hpp"

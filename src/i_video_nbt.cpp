@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "gles2/gles2_compat.h"
+#include "nbt/gles2/gles2_compat.h"
 #include "input_idrive.hpp"
 #include "lifecycle.hpp"
 #include "nbt_log.hpp"

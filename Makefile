@@ -11,7 +11,9 @@ HAS_DOOM1_WAD := $(wildcard $(DOOM1_WAD))
 APP_VERSION ?= 1.0.18
 APP_SEQ ?= 19
 APP_KEY ?=
-# Sibling NBTFoundry checkouts; override as needed.
+# Sibling NBTFoundry checkouts; override as needed. The SDK is built into
+# $(BUILD_DIR)/sdk; the manager is only needed for packaging.
+NBT_SDK_DIR ?= ../sdk
 NBT_MGR_DIR ?= ../manager
 # QNX 6.5 toolchain: the environment script to source, and the folder holding
 # the head unit's libscreen.so.
@@ -25,7 +27,10 @@ QNX_STRIP ?= ntoarmv7-strip
 QNX_READELF ?= ntoarmv7-readelf
 QNX_NM ?= ntoarmv7-nm
 
-COMMON_INC := -I$(NBT_MGR_DIR)/include -Isrc -Isrc/prboom_compat -Isrc/gles2 -I$(PRBOOM_SRC)
+NBT_SDK_BUILD_DIR := $(abspath $(BUILD_DIR))/sdk
+include $(NBT_SDK_DIR)/nbt-sdk.mk
+
+COMMON_INC := $(NBT_SDK_INC) -Isrc -Isrc/prboom_compat -I$(PRBOOM_SRC)
 COMMON_DEFS := -DHAVE_CONFIG_H $(if $(HAS_DOOM1_WAD),,-DNBT_NO_EMBEDDED_DOOM1)
 
 HOST_CFLAGS := -std=gnu99 -O2 -Wall -Wextra -Wno-unused-parameter $(CFLAGS)
@@ -64,15 +69,7 @@ PRBOOM_CORE_CXX := umapinfo.cpp scanner.cpp
 OUR_C := \
 	src/prboom_compat/sdl_compat.c \
 	src/prboom_compat/m_io_wrap.c \
-	src/prboom_compat/w_wad_wrap.c \
-	src/gles2/gles2_matrix.c \
-	src/gles2/gles2_shaders.c \
-	src/gles2/gles2_batch.c
-
-SDK_HEADERS := $(NBT_MGR_DIR)/include/nbt/gamepad_wire.h $(NBT_MGR_DIR)/include/nbt/gamepad/input.hpp \
-	$(NBT_MGR_DIR)/include/nbt/controller_wire.h $(NBT_MGR_DIR)/include/nbt/controller/input.hpp
-SDK_CXX := $(NBT_MGR_DIR)/src/sdk/gamepad_wire.cpp $(NBT_MGR_DIR)/src/sdk/gamepad_input.cpp \
-	$(NBT_MGR_DIR)/src/sdk/controller_wire.cpp $(NBT_MGR_DIR)/src/sdk/controller_input.cpp
+	src/prboom_compat/w_wad_wrap.c
 
 OUR_CXX := \
 	src/wad_vfs.cpp \
@@ -101,8 +98,7 @@ HOST_PRBOOM_OBJ := \
 HOST_OUR_OBJ := \
 	$(patsubst %.c,$(OBJ_DIR)/host/%.o,$(OUR_C)) \
 	$(patsubst %.cpp,$(OBJ_DIR)/host/%.o,$(OUR_CXX)) \
-	$(OBJ_DIR)/host/sdk/gamepad_wire.o $(OBJ_DIR)/host/sdk/gamepad_input.o \
-	$(OBJ_DIR)/host/sdk/controller_wire.o $(OBJ_DIR)/host/sdk/controller_input.o $(OBJ_DIR)/host/wad_embed.o
+	$(OBJ_DIR)/host/wad_embed.o
 
 RDATAWAD_SRC := \
 	$(PRBOOM_DATA)/rd_main.c \
@@ -216,8 +212,8 @@ $(OBJ_DIR)/host/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_
 
 doom-host: $(BUILD_DIR)/nbt-doom-host
 
-$(BUILD_DIR)/nbt-doom-host: $(HOST_PRBOOM_OBJ) $(HOST_OUR_OBJ)
-	$(CXX) $^ $(LDFLAGS) $(HOST_LDLIBS) -o $@
+$(BUILD_DIR)/nbt-doom-host: $(HOST_PRBOOM_OBJ) $(HOST_OUR_OBJ) $(NBT_SDK_HOST_LIBS)
+	$(CXX) $^ $(LDFLAGS) $(NBT_SDK_HOST_LDLIBS) -o $@
 
 run-doom-host: $(BUILD_DIR)/nbt-doom-host
 	$(BUILD_DIR)/nbt-doom-host
@@ -239,9 +235,6 @@ UNIT_CXX_SRC := \
 	src/sound_qnx.cpp
 
 UNIT_C_SRC := \
-	src/gles2/gles2_matrix.c \
-	src/gles2/gles2_shaders.c \
-	src/gles2/gles2_batch.c \
 	src/prboom_compat/sdl_compat.c
 
 $(OBJ_DIR)/host/tests/doom_test.o: tests/doom_test.cpp
@@ -251,16 +244,15 @@ $(OBJ_DIR)/host/tests/doom_test.o: tests/doom_test.cpp
 $(BUILD_DIR)/doom-unit-test: $(OBJ_DIR)/host/tests/doom_test.o \
 		$(patsubst %.cpp,$(OBJ_DIR)/host/%.o,$(UNIT_CXX_SRC)) \
 		$(patsubst %.c,$(OBJ_DIR)/host/%.o,$(UNIT_C_SRC)) \
-		$(OBJ_DIR)/host/sdk/gamepad_wire.o $(OBJ_DIR)/host/sdk/gamepad_input.o \
-		$(OBJ_DIR)/host/sdk/controller_wire.o $(OBJ_DIR)/host/sdk/controller_input.o $(OBJ_DIR)/host/wad_embed.o
-	$(CXX) $^ $(LDFLAGS) $(HOST_LDLIBS) -o $@
+		$(OBJ_DIR)/host/wad_embed.o $(NBT_SDK_HOST_LIBS)
+	$(CXX) $^ $(LDFLAGS) $(NBT_SDK_HOST_LDLIBS) -o $@
 
-$(BUILD_DIR)/doom-unit-asan: $(SDK_HEADERS) $(wildcard src/*.hpp) tests/doom_test.cpp $(UNIT_CXX_SRC) $(UNIT_C_SRC) $(SDK_CXX) src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD)
+$(BUILD_DIR)/doom-unit-asan: $(wildcard src/*.hpp) tests/doom_test.cpp $(UNIT_CXX_SRC) $(UNIT_C_SRC) src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) $(NBT_SDK_ASAN_LIBS)
 	$(CXX) $(COMMON_INC) $(COMMON_DEFS) -std=c++11 -O1 -g -fno-exceptions -fno-rtti \
 		-fsanitize=address,undefined -fno-omit-frame-pointer \
 		$(WAD_ASM_FLAGS) \
-		tests/doom_test.cpp $(UNIT_CXX_SRC) $(UNIT_C_SRC) $(SDK_CXX) src/wad_embed.S \
-		$(HOST_LDLIBS) -o $@
+		tests/doom_test.cpp $(UNIT_CXX_SRC) $(UNIT_C_SRC) src/wad_embed.S \
+		$(NBT_SDK_ASAN_LIBS) $(NBT_SDK_HOST_LDLIBS) -o $@
 
 test: doom-host $(BUILD_DIR)/doom-unit-test
 	$(BUILD_DIR)/doom-unit-test
@@ -287,6 +279,11 @@ format:
 	clang-format -i $(shell find src tests -maxdepth 2 \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \))
 
 # --- QNX 6.5 ARMv7 cross-compilation ---
+.PHONY: qnx-env
+qnx-env:
+	@test -n "$(QNX_ENV)" || { echo "QNX_ENV is not set: make QNX_ENV=/path/to/qnx-env.sh ..."; exit 1; }
+	@test -r "$(QNX_ENV)" || { echo "QNX_ENV=$(QNX_ENV) is not readable"; exit 1; }
+
 QNX_C_VARIANT := -Vgcc_ntoarmv7le
 QNX_CPP_VARIANT := -Vgcc_ntoarmv7le_gpp
 QNX_CFLAGS := $(QNX_C_VARIANT) -D_QNX_SOURCE -O2 -Wc,-std=gnu99 -w $(COMMON_INC) $(COMMON_DEFS)
@@ -302,55 +299,55 @@ QNX_PRBOOM_OBJ := \
 QNX_OUR_OBJ := \
 	$(patsubst %.c,$(OBJ_DIR)/qnx/%.o,$(OUR_C)) \
 	$(patsubst %.cpp,$(OBJ_DIR)/qnx/%.o,$(OUR_CXX)) \
-	$(OBJ_DIR)/qnx/sdk/gamepad_wire.o $(OBJ_DIR)/qnx/sdk/gamepad_input.o \
-	$(OBJ_DIR)/qnx/sdk/controller_wire.o $(OBJ_DIR)/qnx/sdk/controller_input.o $(OBJ_DIR)/qnx/wad_embed.o
+	$(OBJ_DIR)/qnx/wad_embed.o
 
-$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.c
+$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.c | qnx-env
 	@mkdir -p $(dir $@)
-	. $(QNX_ENV) && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
+	. "$(QNX_ENV)" && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.cpp
+$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.cpp | qnx-env
 	@mkdir -p $(dir $@)
-	. $(QNX_ENV) && $(QCC) $(QNX_PRBOOM_CXXFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
+	. "$(QNX_ENV)" && $(QCC) $(QNX_PRBOOM_CXXFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/src/prboom_compat/w_wad_wrap.o: src/prboom_compat/w_wad_wrap.c
+$(OBJ_DIR)/qnx/src/prboom_compat/w_wad_wrap.o: src/prboom_compat/w_wad_wrap.c | qnx-env
 	@mkdir -p $(dir $@)
-	. $(QNX_ENV) && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
+	. "$(QNX_ENV)" && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/src/prboom_compat/m_io_wrap.o: src/prboom_compat/m_io_wrap.c
+$(OBJ_DIR)/qnx/src/prboom_compat/m_io_wrap.o: src/prboom_compat/m_io_wrap.c | qnx-env
 	@mkdir -p $(dir $@)
-	. $(QNX_ENV) && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
+	. "$(QNX_ENV)" && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/src/%.o: src/%.c
+$(OBJ_DIR)/qnx/src/%.o: src/%.c | qnx-env
 	@mkdir -p $(dir $@)
-	. $(QNX_ENV) && $(QCC) $(QNX_OUR_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
+	. "$(QNX_ENV)" && $(QCC) $(QNX_OUR_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/src/%.o: src/%.cpp
+$(OBJ_DIR)/qnx/src/%.o: src/%.cpp | qnx-env
 	@mkdir -p $(dir $@)
-	. $(QNX_ENV) && $(QCC) $(QNX_OUR_CXXFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
+	. "$(QNX_ENV)" && $(QCC) $(QNX_OUR_CXXFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD)
+$(OBJ_DIR)/qnx/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) | qnx-env
 	@mkdir -p $(dir $@)
-	. $(QNX_ENV) && $(QCC) $(QNX_C_VARIANT) $(WAD_ASM_FLAGS) -c src/wad_embed.S -o $@
+	. "$(QNX_ENV)" && $(QCC) $(QNX_C_VARIANT) $(WAD_ASM_FLAGS) -c src/wad_embed.S -o $@
 
-$(BUILD_DIR)/nbt-doom-qnx-unstripped: $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) src/qnx_exports.list
-	test -n "$(QNX_SCREEN_LIBDIR)"
-	. $(QNX_ENV) && $(QCC) $(QNX_CPP_VARIANT) -lang-c++ $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) -L$(QNX_SCREEN_LIBDIR) -Wl,--dynamic-list,src/qnx_exports.list -lscreen -lEGL -lGLESv2 -lsocket -lm -o $@
+$(BUILD_DIR)/nbt-doom-qnx-unstripped: $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_QNX_LIBS) src/qnx_exports.list | qnx-env
+	@test -n "$(QNX_SCREEN_LIBDIR)" || { echo "QNX_SCREEN_LIBDIR is not set (directory with libscreen.so)"; exit 1; }
+	. "$(QNX_ENV)" && $(QCC) $(QNX_CPP_VARIANT) -lang-c++ $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_QNX_LIBS) -L$(QNX_SCREEN_LIBDIR) -Wl,--dynamic-list,src/qnx_exports.list $(NBT_SDK_QNX_LDLIBS) -o $@
 
 $(BUILD_DIR)/nbt-doom-qnx: $(BUILD_DIR)/nbt-doom-qnx-unstripped
-	. $(QNX_ENV) && $(QNX_STRIP) -o $@ $<
+	. "$(QNX_ENV)" && $(QNX_STRIP) -o $@ $<
 
 qnx: $(BUILD_DIR)/nbt-doom-qnx
 
 qnx-check: qnx
-	. $(QNX_ENV) && $(QNX_READELF) -h -d $(BUILD_DIR)/nbt-doom-qnx
-	. $(QNX_ENV) && set -e; \
+	. "$(QNX_ENV)" && $(QNX_READELF) -h -d $(BUILD_DIR)/nbt-doom-qnx
+	. "$(QNX_ENV)" && set -e; \
 		bad="$$($(QNX_NM) -u $(BUILD_DIR)/nbt-doom-qnx-unstripped | grep -E 'GLIBCXX_3\.4\.(1[4-9]|[2-9][0-9])|__cxa_throw' || true)"; \
 		if test -n "$$bad"; then echo "Disallowed QNX ABI symbols:"; echo "$$bad"; exit 1; fi; \
 		echo "OK: QNX binary ELF/ABI symbols verified"
 
 doom-package: qnx
-	test -f "$(APP_KEY)"
+	@test -f "$(APP_KEY)" || { echo "APP_KEY must name the RSA signing key"; exit 1; }
+	@test -f "$(NBT_MGR_DIR)/tools/package.py" || { echo "NBT_MGR_DIR=$(NBT_MGR_DIR) has no tools/package.py"; exit 1; }
 	rm -f $(BUILD_DIR)/doom-$(APP_VERSION).nbt
 	python3 $(NBT_MGR_DIR)/tools/package.py \
 		--app doom \
@@ -377,9 +374,3 @@ clean:
 DEPS := $(shell find $(OBJ_DIR) -name '*.d' 2>/dev/null)
 -include $(DEPS)
 
-$(OBJ_DIR)/host/sdk/%.o: $(NBT_MGR_DIR)/src/sdk/%.cpp
-	@mkdir -p $(dir $@)
-	$(CXX) $(COMMON_INC) $(HOST_CXXFLAGS) -MMD -MP -c $< -o $@
-$(OBJ_DIR)/qnx/sdk/%.o: $(NBT_MGR_DIR)/src/sdk/%.cpp
-	@mkdir -p $(dir $@)
-	. $(QNX_ENV) && $(QCC) $(QNX_OUR_CXXFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
