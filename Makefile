@@ -330,6 +330,51 @@ $(BUILD_DIR)/nbt-doom-qnx: $(BUILD_DIR)/nbt-doom-qnx-unstripped
 
 qnx: $(BUILD_DIR)/nbt-doom-qnx
 
+# --- A guest: built without the QNX SDP, run by nbt-runner as its own
+# process (sdk/guest). Doom is GPL: the QNX licence forbids linking it with
+# QNX code, so it must be a guest, never a module (the licence gate checks). ---
+GUEST_APP := $(BUILD_DIR)/nbt-doom.guest
+GUEST_APP_LICENSE := GPL-2.0-or-later
+MOD_PRBOOM_CFLAGS := $(NBT_MOD_CFLAGS) -O2 -std=gnu99 -w $(COMMON_INC) $(COMMON_DEFS)
+MOD_PRBOOM_CXXFLAGS := $(NBT_MOD_CXXFLAGS) -O2 -std=c++11 -w -fno-exceptions -fno-rtti $(COMMON_INC) $(COMMON_DEFS)
+MOD_OUR_CFLAGS := $(NBT_MOD_CFLAGS) -O2 -std=gnu99 -Wall -Wextra $(COMMON_INC) $(COMMON_DEFS)
+MOD_OUR_CXXFLAGS := $(NBT_MOD_CXXFLAGS) -O2 -std=c++11 -Wall -Wextra -fno-exceptions -fno-rtti $(COMMON_INC) \
+	$(COMMON_DEFS)
+MOD_PRBOOM_OBJ := $(patsubst %.c,$(OBJ_DIR)/mod/prboom/%.o,$(PRBOOM_CORE_C)) \
+	$(patsubst %.cpp,$(OBJ_DIR)/mod/prboom/%.o,$(PRBOOM_CORE_CXX))
+MOD_OUR_OBJ := $(patsubst %.c,$(OBJ_DIR)/mod/%.o,$(OUR_C)) $(patsubst %.cpp,$(OBJ_DIR)/mod/%.o,$(OUR_CXX)) \
+	$(OBJ_DIR)/mod/wad_embed.o
+
+$(OBJ_DIR)/mod/prboom/%.o: $(PRBOOM_SRC)/%.c | nbt-sdk-mod
+	@mkdir -p $(dir $@)
+	$(NBT_MOD_CC) $(MOD_PRBOOM_CFLAGS) -MMD -MP -c $< -o $@
+
+$(OBJ_DIR)/mod/prboom/%.o: $(PRBOOM_SRC)/%.cpp | nbt-sdk-mod
+	@mkdir -p $(dir $@)
+	$(NBT_MOD_CXX) $(MOD_PRBOOM_CXXFLAGS) -MMD -MP -c $< -o $@
+
+$(OBJ_DIR)/mod/src/prboom_compat/%.o: src/prboom_compat/%.c | nbt-sdk-mod
+	@mkdir -p $(dir $@)
+	$(NBT_MOD_CC) $(MOD_PRBOOM_CFLAGS) -MMD -MP -c $< -o $@
+
+$(OBJ_DIR)/mod/src/%.o: src/%.c | nbt-sdk-mod
+	@mkdir -p $(dir $@)
+	$(NBT_MOD_CC) $(MOD_OUR_CFLAGS) -MMD -MP -c $< -o $@
+
+$(OBJ_DIR)/mod/src/%.o: src/%.cpp | nbt-sdk-mod
+	@mkdir -p $(dir $@)
+	$(NBT_MOD_CXX) $(MOD_OUR_CXXFLAGS) -MMD -MP -c $< -o $@
+
+$(OBJ_DIR)/mod/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) | nbt-sdk-mod
+	@mkdir -p $(dir $@)
+	$(NBT_MOD_CC) $(NBT_MOD_ARCH) $(WAD_ASM_FLAGS) -c src/wad_embed.S -o $@
+
+$(GUEST_APP): $(MOD_PRBOOM_OBJ) $(MOD_OUR_OBJ) $(NBT_SDK_MOD_DEPS)
+	$(call nbt_guest_link,$@,$(MOD_PRBOOM_OBJ) $(MOD_OUR_OBJ),$(GUEST_APP_LICENSE))
+
+.PHONY: guest
+guest: $(GUEST_APP)
+
 qnx-check: qnx
 	. "$(QNX_ENV)" && $(QNX_READELF) -h -d $(BUILD_DIR)/nbt-doom-qnx
 	. "$(QNX_ENV)" && set -e; \
