@@ -1,9 +1,29 @@
-# Doom for NBT Manager
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+    <img src="docs/assets/logo-light.svg" alt="NBTFoundry" height="44">
+  </picture>
+</p>
+
+<h1 align="center">Doom for NBT Manager</h1>
+
+<p align="center">
+  <b>The shareware episode on the iDrive screen,</b><br>
+  played with the iDrive controller or a USB gamepad.
+</p>
+
+<p align="center">
+  <img src="docs/assets/doom-demo.webp" width="720"
+       alt="Doom's first demo running on the head unit's 1440x540 panel">
+</p>
 
 PrBoom+ on the BMW NBT Evo (iDrive 6) head unit: hardware-accelerated OpenGL ES 2
 rendering on the car's panel, sound and OPL2 music through the car's speakers, and
 the iDrive controller or a wired gamepad as input. Installed and launched through
 NBT Manager; built on the NBT App SDK.
+
+**Supported head units:** BMW NBT Evo (iDrive 6). Support for the earlier NBT
+may come later.
 
 Part of [NBTFoundry](https://github.com/NBTFoundry):
 [manager](https://github.com/NBTFoundry/manager) ·
@@ -121,6 +141,12 @@ packer (`../manager/tools/package.py`, or `NBT_MGR_DIR`).
 can be given with `DOOM1_WAD=/path/to/doom1.wad`. Without one, the build looks for
 `doom1.wad` at run time in `NBT_DATA_DIR`, `.`, `assets/` and `/app/data`.
 
+### README captures
+
+`tools/capture_demo.sh` records the attract loop's first demo from the host
+build under Xvfb and writes `docs/assets/doom-demo.{webp,png}` (needs Xvfb, ffmpeg
+with libwebp and ImageMagick).
+
 ## Layout
 
 | Path | Contents |
@@ -134,3 +160,4 @@ can be given with `DOOM1_WAD=/path/to/doom1.wad`. Without one, the build looks f
 | `src/doom_input.hpp`, `src/input_idrive.*`, `src/input_gamepad.*` | Key codes and the controller and gamepad mappings |
 | `src/doom_log.*` | Log start-up |
 | `tests/` | Unit tests (`doom_test.cpp`) and integration tests (`test_doom.py`) |
+| `tools/` | README capture script |
