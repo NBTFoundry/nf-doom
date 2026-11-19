@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
@@ -6,6 +7,8 @@
 </p>
 
 <h1 align="center">Doom for NBT Manager</h1>
+
+> **Warning: installing or modifying this software can brick your head unit. Recovery may require professional service or replacement, at your expense. Provided AS IS; use at your own risk, subject to applicable law.** [Read the risk and liability disclaimer](DISCLAIMER.md).
 
 <p align="center">
   <b>The shareware episode on the iDrive screen,</b><br>
@@ -161,3 +164,13 @@ with libwebp and ImageMagick).
 | `src/doom_log.*` | Log start-up |
 | `tests/` | Unit tests (`doom_test.cpp`) and integration tests (`test_doom.py`) |
 | `tools/` | README capture script |
+
+## License
+
+Copyright (c) 2026 Fabien Poussin. Original code, tests, build scripts and documentation are licensed under **GPL-2.0-or-later**; see [LICENSE](LICENSE).
+
+Original NBTFoundry logos, artwork and screenshots are under **MPL-2.0**, including copies in other NBTFoundry repositories. Third-party code, fonts, game data and their notices retain their own terms. Copyright permission for artwork does not grant trademark rights or imply endorsement by BMW AG or id Software.
+
+PrBoom+ and its bundled components retain their upstream licenses and copyright notices. `assets/doom1.wad` is proprietary id Software shareware game data, not GPL-covered code; see `legal/doom-shareware.md` before distributing it.
+
+See [legal/README.md](legal/README.md) for third-party license notices.

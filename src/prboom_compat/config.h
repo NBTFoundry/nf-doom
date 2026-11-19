@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #ifndef NBT_DOOM_PRBOOM_CONFIG_H
 #define NBT_DOOM_PRBOOM_CONFIG_H
 

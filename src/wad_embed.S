@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 .section .rodata
 
 .global nbt_prboom_wad_start

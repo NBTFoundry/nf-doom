@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Records the attract loop's first demo (DEMO1) from the host build under
 # Xvfb, for the README: docs/assets/doom-demo.webp (animated WebP) and a still,
 # docs/assets/doom-demo.png, both framed like the head unit's 1440x540 panel.

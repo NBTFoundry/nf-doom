@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 SHELL := /bin/bash
 
 BUILD_DIR ?= build

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #ifndef NBT_DOOM_INPUT_IDRIVE_HPP
 #define NBT_DOOM_INPUT_IDRIVE_HPP
 

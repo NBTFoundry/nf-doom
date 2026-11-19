@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #include "input_idrive.hpp"
 
 #include <stdio.h>
