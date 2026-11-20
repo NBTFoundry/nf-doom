@@ -142,7 +142,13 @@ make QNX_ENV=… QNX_SCREEN_LIBDIR=… APP_KEY=/path/to/apps-signing-key.pem doo
 
 `qnx-check` rejects symbols QNX 6.5's C++ runtime lacks and checks that `kdMain`
 is exported. `doom-package` signs `build/doom-<version>.nbt` with NBT Manager's
-packer (`../manager/tools/package.py`, or `NBT_MGR_DIR`).
+packer (`../manager/tools/package.py`, or `NBT_MGR_DIR`), described by
+`release/package.args`.
+
+Pushing a tag `vX.Y.Z` releases a signed package from CI
+(`.github/workflows/release.yml`, NBT Manager's `app-release.yml`): built with the
+QNX 6.5 SP1 toolchain, package sequence `X*1000000 + Y*1000 + Z`, signed after a
+maintainer approves the run.
 
 ### The shareware WAD
 

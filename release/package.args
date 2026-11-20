@@ -1,0 +1,27 @@
+# The package description for tools/package.py (NBTFoundry/manager): one argument
+# per line. `make doom-package` and the release workflow both use it; they add the
+# version, sequence, key, output and executable.
+--app
+doom
+--compat
+nbt_6.5_armv7
+--bridge
+1.5
+--bridge-uses
+show,controller
+--bridge-optional
+status,live-settings,gamepad
+--setting
+turn_sens|Turn Sensitivity|medium|low,medium,high
+--setting
+invert_turn|Invert Turn|off|off,on
+--setting
+brightness|Brightness|2|0,1,2,3,4
+--setting
+always_run|Always Run|on|off,on
+--setting
+sound|Sound|on|off,on
+--setting
+show_fps|Show FPS|off|off,on
+--setting
+debug_log|Debug log|off|off,on

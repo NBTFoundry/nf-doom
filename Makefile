@@ -387,22 +387,10 @@ doom-package: qnx
 	@test -f "$(APP_KEY)" || { echo "APP_KEY must name the RSA signing key"; exit 1; }
 	@test -f "$(NBT_MGR_DIR)/tools/package.py" || { echo "NBT_MGR_DIR=$(NBT_MGR_DIR) has no tools/package.py"; exit 1; }
 	rm -f $(BUILD_DIR)/doom-$(APP_VERSION).nbt
-	python3 $(NBT_MGR_DIR)/tools/package.py \
-		--app doom \
+	python3 $(NBT_MGR_DIR)/tools/package.py @release/package.args \
 		--version "$(APP_VERSION)" \
 		--sequence "$(APP_SEQ)" \
-		--compat nbt_6.5_armv7 \
 		--key "$(APP_KEY)" \
-		--bridge 1.5 \
-		--bridge-uses show,controller \
-		--bridge-optional status,live-settings,gamepad \
-		--setting "turn_sens|Turn Sensitivity|medium|low,medium,high" \
-		--setting "invert_turn|Invert Turn|off|off,on" \
-		--setting "brightness|Brightness|2|0,1,2,3,4" \
-		--setting "always_run|Always Run|on|off,on" \
-		--setting "sound|Sound|on|off,on" \
-		--setting "show_fps|Show FPS|off|off,on" \
-		--setting "debug_log|Debug log|off|off,on" \
 		--output $(BUILD_DIR)/doom-$(APP_VERSION).nbt \
 		$(BUILD_DIR)/nbt-doom-qnx
 
