@@ -135,7 +135,7 @@ make -j"$(nproc)" host test test-asan check-static-init   # host binary and test
 
 Head unit (QNX 6.5 ARMv7): a guest, built with the SDK's open toolchain
 (`make -C ../sdk toolchain` once) and nothing from the QNX SDP, so this GPL
-program never links QNX code. NBT Manager releases with bridge 1.7 run it with
+program never links QNX code. NBT Manager 0.2.0 and later (bridge 1.7) run it with
 their `nbt-runner`:
 
 ```sh
