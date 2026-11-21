@@ -14,10 +14,10 @@ import tempfile
 import time
 import unittest
 
+ROOT = Path(__file__).resolve().parents[1]
 BUILD_DIR = Path(os.environ.get("NBT_BUILD_DIR", "build"))
 MGR_DIR = Path(os.environ.get("NBT_MGR_DIR", Path(__file__).resolve().parents[2] / "manager"))
 HOST_BIN = BUILD_DIR / "nbt-doom-host"
-QNX_BIN = BUILD_DIR / "nbt-doom-qnx"
 
 
 class NbtDoomIntegrationTest(unittest.TestCase):
@@ -219,17 +219,28 @@ class NbtDoomIntegrationTest(unittest.TestCase):
         self._run_xvfb_launch(sound_on=False)
         self._run_xvfb_launch(sound_on=True)
 
-    def test_qnx_package_and_verify(self):
+    def test_package_and_verify(self):
+        """The package carries the guest (bridge 1.7, runner): a stand-in
+        guest with the SDK's NBT ABI note, packed from release/package.args."""
         package_py = MGR_DIR / "tools" / "package.py"
         verify_bin = MGR_DIR / "build" / "nbt-verify"
-        if not QNX_BIN.exists() or not verify_bin.exists():
-            self.skipTest("QNX binary or nbt-verify not built")
+        if not package_py.exists() or not verify_bin.exists():
+            self.skipTest("the manager's tools/package.py or build/nbt-verify is missing")
 
         with tempfile.TemporaryDirectory() as td:
             td_path = Path(td)
             priv = td_path / "app.key"
             pub = td_path / "app.pub"
             out_nbt = td_path / "doom-1.0.0.nbt"
+            guest = td_path / "stand-in.guest"
+            note = struct.pack("<III", 4, 12, 1) + b"NBT\0" + struct.pack("<III", 1, 1, 2)
+            elf = bytearray(52)
+            elf[:7] = b"\x7fELF\x01\x01\x01"
+            struct.pack_into("<HHI", elf, 16, 2, 40, 1)
+            struct.pack_into("<I", elf, 28, 52)
+            struct.pack_into("<HHH", elf, 40, 52, 32, 1)
+            phdr = struct.pack("<IIIIIIII", 4, 84, 0, 0, len(note), len(note), 4, 4)
+            guest.write_bytes(bytes(elf) + phdr + note)
             subprocess.run(
                 ["openssl", "genrsa", "-out", str(priv), "3072"],
                 check=True,
@@ -244,39 +255,16 @@ class NbtDoomIntegrationTest(unittest.TestCase):
                 [
                     "python3",
                     str(package_py),
-                    "--app",
-                    "doom",
+                    "@" + str(ROOT / "release" / "package.args"),
                     "--version",
                     "1.0.0",
                     "--sequence",
                     "1",
-                    "--compat",
-                    "nbt_6.5_armv7",
                     "--key",
                     str(priv),
-                    "--bridge",
-                    "1.5",
-                    "--bridge-uses",
-                    "show,controller",
-                    "--bridge-optional",
-                    "status,live-settings,gamepad",
-                    "--setting",
-                    "turn_sens|Turn Sensitivity|medium|low,medium,high",
-                    "--setting",
-                    "invert_turn|Invert Turn|off|off,on",
-                    "--setting",
-                    "brightness|Brightness|2|0,1,2,3,4",
-                    "--setting",
-                    "always_run|Always Run|on|off,on",
-                    "--setting",
-                    "sound|Sound|on|off,on",
-                    "--setting",
-                    "show_fps|Show FPS|off|off,on",
-                    "--setting",
-                    "debug_log|Debug log|off|off,on",
                     "--output",
                     str(out_nbt),
-                    str(QNX_BIN),
+                    str(guest),
                 ],
                 check=True,
                 capture_output=True,
@@ -288,8 +276,8 @@ class NbtDoomIntegrationTest(unittest.TestCase):
                 text=True,
             )
             self.assertIn("app=doom\n", v.stdout)
-            self.assertIn("bridge=1.5\n", v.stdout)
-            self.assertIn("bridge-uses=show,controller\n", v.stdout)
+            self.assertIn("bridge=1.7\n", v.stdout)
+            self.assertIn("bridge-uses=show,controller,runner\n", v.stdout)
             self.assertIn("bridge-optional=status,live-settings,gamepad\n", v.stdout)
             self.assertNotIn("bridge-most", v.stdout)
             raw = out_nbt.read_bytes()

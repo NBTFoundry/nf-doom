@@ -1,14 +1,16 @@
 # The package description for tools/package.py (NBTFoundry/manager): one argument
 # per line. `make doom-package` and the release workflow both use it; they add the
-# version, sequence, key, output and executable.
+# version, sequence, key, output and executable. Bridge 1.7: the payload is a
+# guest built without the QNX SDP (GPL code stays out of QNX code), run by NBT
+# Manager's nbt-runner (runner).
 --app
 doom
 --compat
 nbt_6.5_armv7
 --bridge
-1.5
+1.7
 --bridge-uses
-show,controller
+show,controller,runner
 --bridge-optional
 status,live-settings,gamepad
 --setting

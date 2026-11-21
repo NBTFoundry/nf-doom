@@ -133,22 +133,27 @@ make -j"$(nproc)" host test test-asan check-static-init   # host binary and test
 ./build/nbt-doom-host                                     # play on the desktop (X11)
 ```
 
-Head unit (QNX 6.5 ARMv7):
+Head unit (QNX 6.5 ARMv7): a guest, built with the SDK's open toolchain
+(`make -C ../sdk toolchain` once) and nothing from the QNX SDP, so this GPL
+program never links QNX code. NBT Manager releases with bridge 1.7 run it with
+their `nbt-runner`:
 
 ```sh
-make QNX_ENV=/path/to/qnx-env.sh QNX_SCREEN_LIBDIR=/path/to/screen/lib qnx qnx-check
-make QNX_ENV=… QNX_SCREEN_LIBDIR=… APP_KEY=/path/to/apps-signing-key.pem doom-package
+make -j"$(nproc)" guest                                        # build/nbt-doom.guest
+make APP_KEY=/path/to/apps-signing-key.pem doom-package        # build/doom-<version>.nbt
 ```
 
-`qnx-check` rejects symbols QNX 6.5's C++ runtime lacks and checks that `kdMain`
-is exported. `doom-package` signs `build/doom-<version>.nbt` with NBT Manager's
-packer (`../manager/tools/package.py`, or `NBT_MGR_DIR`), described by
-`release/package.args`.
+`doom-package` signs the guest with NBT Manager's packer
+(`../manager/tools/package.py`, or `NBT_MGR_DIR`), described by
+`release/package.args`. `make vm-test` runs it in the SDK's QNX 6.5 VM.
 
 Pushing a tag `vX.Y.Z` releases a signed package from CI
-(`.github/workflows/release.yml`, NBT Manager's `app-release.yml`): built with the
-QNX 6.5 SP1 toolchain, package sequence `X*1000000 + Y*1000 + Z`, signed after a
-maintainer approves the run.
+(`.github/workflows/release.yml`, NBT Manager's `app-release.yml` with
+`qnx: false`: a plain runner, no private image), package sequence
+`X*1000000 + Y*1000 + Z`, signed after a maintainer approves the run.
+
+The QNX SDP build stays for comparisons on the car (`make QNX_ENV=…
+QNX_SCREEN_LIBDIR=… qnx qnx-check`); packages do not carry it.
 
 ### The shareware WAD
 

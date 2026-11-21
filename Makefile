@@ -372,16 +372,8 @@ $(OBJ_DIR)/mod/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_D
 $(GUEST_APP): $(MOD_PRBOOM_OBJ) $(MOD_OUR_OBJ) $(NBT_SDK_MOD_DEPS)
 	$(call nbt_guest_link,$@,$(MOD_PRBOOM_OBJ) $(MOD_OUR_OBJ),$(GUEST_APP_LICENSE))
 
-.PHONY: guest guest-bundle vm-test
+.PHONY: guest vm-test
 guest: $(GUEST_APP)
-
-# For today's NBT Manager, which does not run payloads itself yet: nbt-runner
-# with the guest appended (needs QNX_ENV and QNX_SCREEN_LIBDIR).
-GUEST_BUNDLE := $(BUILD_DIR)/nbt-doom-bundle
-$(GUEST_BUNDLE): $(GUEST_APP) $(NBT_SDK_RUNNER)
-	$(NBT_SDK_BUNDLE) $(GUEST_APP) $@
-
-guest-bundle: $(GUEST_BUNDLE)
 
 # --- The guest in QNX 6.5 SP1 under QEMU (the SDK's tools/qnx65-vm; no GPU,
 # no sound: both faked): a health check, then the demo loop, which must draw
@@ -405,9 +397,9 @@ qnx-check: qnx
 		$(QNX_NM) -D $(BUILD_DIR)/nbt-doom-qnx-unstripped | grep -qw kdMain || { echo "kdMain is not exported"; exit 1; }; \
 		echo "OK: QNX binary ELF/ABI symbols verified, kdMain exported"
 
-# The package's executable: the QNX build, or the guest with
-# PACKAGE_INPUT=$(BUILD_DIR)/nbt-doom-bundle.
-PACKAGE_INPUT ?= $(BUILD_DIR)/nbt-doom-qnx
+# The package's executable: the guest, which NBT Manager's nbt-runner runs
+# (bridge 1.7, runner). The QNX build stays for comparisons on the car.
+PACKAGE_INPUT ?= $(GUEST_APP)
 
 doom-package: $(PACKAGE_INPUT)
 	@test -f "$(APP_KEY)" || { echo "APP_KEY must name the RSA signing key"; exit 1; }
