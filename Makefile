@@ -372,8 +372,30 @@ $(OBJ_DIR)/mod/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_D
 $(GUEST_APP): $(MOD_PRBOOM_OBJ) $(MOD_OUR_OBJ) $(NBT_SDK_MOD_DEPS)
 	$(call nbt_guest_link,$@,$(MOD_PRBOOM_OBJ) $(MOD_OUR_OBJ),$(GUEST_APP_LICENSE))
 
-.PHONY: guest
+.PHONY: guest guest-bundle vm-test
 guest: $(GUEST_APP)
+
+# For today's NBT Manager, which does not run payloads itself yet: nbt-runner
+# with the guest appended (needs QNX_ENV and QNX_SCREEN_LIBDIR).
+GUEST_BUNDLE := $(BUILD_DIR)/nbt-doom-bundle
+$(GUEST_BUNDLE): $(GUEST_APP) $(NBT_SDK_RUNNER)
+	$(NBT_SDK_BUNDLE) $(GUEST_APP) $@
+
+guest-bundle: $(GUEST_BUNDLE)
+
+# --- The guest in QNX 6.5 SP1 under QEMU (the SDK's tools/qnx65-vm; no GPU,
+# no sound: both faked): a health check, then the demo loop, which must draw
+# frames and stop cleanly. ---
+VM_PLAY := NBT_LAUNCH=user NBT_SURFACE=5 NBT_RUNNER_FAKE_GL=1 NBT_RUNNER_FAKE_AUDIO=1 NBT_DATA_DIR=/dev/shmem
+
+vm-test: $(NBT_SDK_RUNNER) $(GUEST_APP)
+	QEMU_RUN_SECS=150 $(NBT_SDK_ROOT)/tools/qnx65-vm/run.sh \
+		-c "NBT_LAUNCH=check NBT_DATA_DIR=/dev/shmem nbt-runner --nbt-payload /proc/boot/$(notdir $(GUEST_APP)) &" \
+		-c "waitfor /none 10" -c "slay -s TERM nbt-runner" -c "waitfor /none 3" \
+		-c "$(VM_PLAY) nbt-runner --nbt-payload /proc/boot/$(notdir $(GUEST_APP)) &" \
+		-c "waitfor /none 60" -c "slay -s TERM nbt-runner" -c "waitfor /none 3" \
+		-x 'stage: check' -x 'fake-gl: closed: [1-9][0-9]* frames' -x 'runner: guest exited status=0' \
+		$^
 
 qnx-check: qnx
 	. "$(QNX_ENV)" && $(QNX_READELF) -h -d $(BUILD_DIR)/nbt-doom-qnx
@@ -383,7 +405,11 @@ qnx-check: qnx
 		$(QNX_NM) -D $(BUILD_DIR)/nbt-doom-qnx-unstripped | grep -qw kdMain || { echo "kdMain is not exported"; exit 1; }; \
 		echo "OK: QNX binary ELF/ABI symbols verified, kdMain exported"
 
-doom-package: qnx
+# The package's executable: the QNX build, or the guest with
+# PACKAGE_INPUT=$(BUILD_DIR)/nbt-doom-bundle.
+PACKAGE_INPUT ?= $(BUILD_DIR)/nbt-doom-qnx
+
+doom-package: $(PACKAGE_INPUT)
 	@test -f "$(APP_KEY)" || { echo "APP_KEY must name the RSA signing key"; exit 1; }
 	@test -f "$(NBT_MGR_DIR)/tools/package.py" || { echo "NBT_MGR_DIR=$(NBT_MGR_DIR) has no tools/package.py"; exit 1; }
 	rm -f $(BUILD_DIR)/doom-$(APP_VERSION).nbt
@@ -392,7 +418,7 @@ doom-package: qnx
 		--sequence "$(APP_SEQ)" \
 		--key "$(APP_KEY)" \
 		--output $(BUILD_DIR)/doom-$(APP_VERSION).nbt \
-		$(BUILD_DIR)/nbt-doom-qnx
+		$(PACKAGE_INPUT)
 
 clean:
 	rm -rf $(BUILD_DIR)
