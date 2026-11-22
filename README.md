@@ -145,7 +145,10 @@ make APP_KEY=/path/to/apps-signing-key.pem doom-package        # build/doom-<ver
 
 `doom-package` signs the guest with NBT Manager's packer
 (`../manager/tools/package.py`, or `NBT_MGR_DIR`), described by
-`release/package.args`. `make vm-test` runs it in the SDK's QNX 6.5 VM.
+`release/package.args`. It also carries what the phone app shows before an install
+(the PrBoom+ version, the project, the licence, notices); `make package-args`
+writes the version the pin builds, and `make test` fails when it lags.
+`make vm-test` runs the guest in the SDK's QNX 6.5 VM.
 
 Pushing a tag `vX.Y.Z` releases a signed package from CI
 (`.github/workflows/release.yml`, NBT Manager's `app-release.yml` with

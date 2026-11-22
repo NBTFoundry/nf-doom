@@ -285,6 +285,12 @@ class NbtDoomIntegrationTest(unittest.TestCase):
             manifest = raw[24 : 24 + mlen].decode("ascii")
             self.assertNotIn("setting=aspect|", manifest)
             self.assertIn("setting=debug_log|Debug log|off|off,on\n", manifest)
+            # What the phone app shows before an install: upstream's version, project
+            # and licence, then text.
+            self.assertRegex(manifest, r"\nproperty=PrBoom\+\|[0-9.]+\n")
+            self.assertIn("property=Project|PrBoom+ (https://github.com/coelckers/prboom-plus)\n", manifest)
+            self.assertIn("property=Licence|GPL-2.0-or-later\n", manifest)
+            self.assertIn("\ntext=\n", manifest)
 
 
 if __name__ == "__main__":

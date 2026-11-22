@@ -160,7 +160,7 @@ WAD_SPRITEP := \
 	18,27,sprites/pls1g0.ppm 9,11,sprites/pls2a0.ppm 8,13,sprites/pls2b0.ppm \
 	11,18,sprites/pls2c0.ppm 16,27,sprites/pls2d0.ppm 18,27,sprites/pls2e0.ppm
 
-.PHONY: all host doom-host run-doom-host test test-asan qnx qnx-check doom-package format check-static-init clean FORCE
+.PHONY: all host doom-host run-doom-host test test-asan qnx qnx-check doom-package package-args format check-static-init clean FORCE
 
 all: doom-host test
 
@@ -252,6 +252,7 @@ $(BUILD_DIR)/doom-unit-asan: $(wildcard src/*.hpp) tests/doom_test.cpp $(UNIT_CX
 		$(NBT_SDK_FRONT_ASAN_LIBS) $(NBT_SDK_HOST_LDLIBS) -o $@
 
 test: doom-host $(BUILD_DIR)/doom-unit-test
+	python3 tools/package_version.py --check release/package.args
 	$(BUILD_DIR)/doom-unit-test
 	NBT_BUILD_DIR=$(abspath $(BUILD_DIR)) NBT_MGR_DIR=$(abspath $(NBT_MGR_DIR)) \
 		python3 -m unittest discover -s tests -v
@@ -402,6 +403,11 @@ qnx-check: qnx
 		if test -n "$$bad"; then echo "Disallowed QNX ABI symbols:"; echo "$$bad"; exit 1; fi; \
 		$(QNX_NM) -D $(BUILD_DIR)/nbt-doom-qnx-unstripped | grep -qw kdMain || { echo "kdMain is not exported"; exit 1; }; \
 		echo "OK: QNX binary ELF/ABI symbols verified, kdMain exported"
+
+# release/package.args's PrBoom+ version (tools/package_version.py): again
+# when the pin moves; `make test` fails until then.
+package-args:
+	python3 tools/package_version.py release/package.args
 
 # The package's executable: the guest, which NBT Manager's nbt-runner runs
 # (bridge 1.7, runner). The QNX build stays for comparisons on the car.
