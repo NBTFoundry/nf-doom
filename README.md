@@ -129,8 +129,9 @@ that connection instead of `0xb8`; the log says so. Delete it to go back.
 ## Build
 
 Needs the NBT App SDK checked out next to this repository (`../sdk`, or
-`NBT_SDK_DIR`), gcc, Python 3, and the X11, EGL and GLESv2 development files.
-`git submodule update --init` fetches PrBoom+.
+`NBT_SDK_DIR`), gcc, Python 3, Git LFS, and the X11, EGL and GLESv2 development
+files. `git submodule update --init` fetches PrBoom+, `git lfs pull` the
+shareware WAD.
 
 ```sh
 make -j"$(nproc)" host test test-asan check-static-init   # host binary and tests
@@ -169,9 +170,12 @@ publishes `doom-X.Y.Z.nbt`, sequence `X*1000000 + Y*1000 + Z`.
 
 ### The shareware WAD
 
-`assets/doom1.wad` (DOOM Shareware v1.9) is embedded in the binary. Another copy
-can be given with `DOOM1_WAD=/path/to/doom1.wad`. Without one, the build looks for
-`doom1.wad` at run time in `NBT_DATA_DIR`, `.`, `assets/` and `/app/data`.
+`assets/doom1.wad` (DOOM Shareware v1.9, in Git LFS) is embedded in the binary;
+the build stops if the file is an LFS pointer rather than a WAD, and CI and the
+release workflow fetch LFS files. Another copy can be given with
+`DOOM1_WAD=/path/to/doom1.wad`. Without one, the build looks for `doom1.wad` at
+run time in `NBT_DATA_DIR`, `.`, `assets/` and `/app/data`. Its status:
+[legal/doom-shareware.md](legal/doom-shareware.md).
 
 ### README captures
 

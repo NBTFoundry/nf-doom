@@ -11,4 +11,11 @@ The existing file was compared byte for byte with DOOM1.WAD in the original `doo
 
 This establishes provenance, not permission to redistribute an extracted WAD embedded in a new binary. The original archive inspected does not supply an explicit grant establishing that permission. Permission to distribute the extracted WAD must be established before publishing a package containing it. The asset is retained unchanged and is not silently removed or relabeled as open source.
 
-Obtain and record the applicable permission before shipping packages or source archives containing this file. Local builds and tests remain available. Any later decision to use separately supplied game data is a separate change to the build and distribution policy.
+## Decision
+
+On 2026-11-22 the maintainer decided that packages and releases embed this file, as
+local builds always did; the CI release build fetches it from Git LFS (doom 1.0.20
+and 1.0.21 embedded only the LFS pointer by mistake, so they carry no game data).
+No explicit grant was found: the maintainer distributes it on that basis. Using
+separately supplied game data instead (the user's own `doom1.wad`, or Freedoom)
+remains a possible later change to the build and distribution policy.

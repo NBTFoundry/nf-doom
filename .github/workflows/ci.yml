@@ -31,6 +31,7 @@ jobs:
         with:
           path: app
           submodules: true
+          lfs: true
           persist-credentials: false
       - id: pins
         run: |
@@ -62,6 +63,7 @@ jobs:
         with:
           path: app
           submodules: true
+          lfs: true
           persist-credentials: false
       - id: pins
         run: |

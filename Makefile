@@ -8,6 +8,13 @@ PRBOOM_DATA := third_party/prboom-plus/prboom2/data
 
 DOOM1_WAD ?= $(or $(wildcard assets/doom1.wad),$(wildcard doom1.wad),assets/doom1.wad)
 HAS_DOOM1_WAD := $(wildcard $(DOOM1_WAD))
+# assets/doom1.wad is in Git LFS: a checkout without LFS holds a text pointer,
+# which would be embedded as the WAD (doom 1.0.20 and 1.0.21 shipped it).
+ifneq ($(HAS_DOOM1_WAD),)
+ifeq ($(filter IWAD PWAD,$(shell head -c 4 '$(DOOM1_WAD)')),)
+$(error $(DOOM1_WAD) is not a WAD (a Git LFS pointer?): run git lfs pull)
+endif
+endif
 
 APP_VERSION ?= 1.0.19
 APP_SEQ ?= 20

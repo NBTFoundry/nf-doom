@@ -16,8 +16,9 @@ repository above with its submodule (coelckers/prboom-plus) and the NBT App
 SDK it names (release/sdk.ref). It also embeds the DOOM shareware episode
 (assets/doom1.wad), id Software's game data, which the GPL does not cover.
 
-Development notices; release blockers:
-- DOOM shareware: permission to redistribute the extracted/embedded doom1.wad has not been established; see legal/doom-shareware.md
+DOOM shareware: no explicit grant to redistribute the extracted, embedded
+doom1.wad was found; the maintainer distributes it by decision. See
+legal/doom-shareware.md.
 
 ========================================================================
 
@@ -386,7 +387,7 @@ DOOM shareware game data (assets/doom1.wad)
 
 DOOM Shareware v1.9 game data: copyright id Software.
 No new license grant is made by NBTFoundry. The engine GPL does not cover this game data.
-See legal/doom-shareware.md for provenance and the unresolved redistribution permission.
+See legal/doom-shareware.md for provenance and the maintainer's decision to distribute it.
 
 ========================================================================
 
