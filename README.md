@@ -111,7 +111,7 @@ Doom's data folder.
 
 ## Bridge
 
-The package carries the guest (built without the QNX SDP, run by NBT
+The package carries the guest (built with the NBT toolchain, run by NBT
 Manager's `nbt-runner`) and declares bridge 1.7: `show`, `controller` and
 `runner` required, `status`, `live-settings` and `gamepad` optional (the
 pad's family). It also carries what the phone app shows before an install
@@ -138,36 +138,36 @@ make -j"$(nproc)" host test test-asan check-static-init   # host binary and test
 ./build/nbt-doom-host                                     # play on the desktop (X11)
 ```
 
-Head unit (QNX 6.5 ARMv7): a guest, built with the NBT toolchain
-(`make -C ../sdk toolchain` once) and nothing from the QNX SDP, so this GPL
-program never links QNX code. NBT Manager's `nbt-runner` runs it as its own
-process (bridge 1.7, `runner`):
+Head unit: Doom is GPL, so the application is a **guest**
+(`sdk/docs/native-apps.md`): built with the NBT toolchain (`make -C ../sdk
+toolchain` once) and run as its own process by the `nbt-runner` NBT Manager
+ships (bridge 1.7, `runner`):
 
 ```sh
 make -j"$(nproc)" guest                                        # build/nbt-doom.guest
 make APP_KEY=/path/to/apps-signing-key.pem package             # build/doom-<version>.nbt
-make QNX_ENV=… QNX_SCREEN_LIBDIR=… vm-test                     # QNX 6.5 SP1 under QEMU
+make vm-test                                                   # the SDK's VM under QEMU
 ```
 
 `package` (also `doom-package`) signs the guest with NBT Manager's packer
 (`../manager/tools/package.py`, or `NBT_MGR_DIR`), described by
 `release/package.args`; `make package-args` writes the PrBoom+ version the pin
 builds, and `make test` fails when it lags. `vm-test` runs the guest in the
-SDK's QNX 6.5 VM; `QNX_ENV` and `QNX_SCREEN_LIBDIR` build the SDK's
-`nbt-runner` for it, the only use of the QNX SDP. `make notice` writes
+SDK's VM, with the SDK's own `nbt-runner` (`sdk/docs/native-apps.md`, "Testing
+without a head unit", says what building it takes). `make notice` writes
 `legal/NOTICE.txt`.
 
 ## Releases
 
-`.github/workflows/ci.yml` runs the host tests, the same under ASan/UBSan and the
-guest build on every push and pull request. A `vX.Y.Z` tag runs
+`.github/workflows/ci.yml` runs the host tests, the same under ASan/UBSan and
+the guest build on every push and pull request. A `vX.Y.Z` tag runs
 `.github/workflows/release.yml`: NBT Manager's application release workflow
-builds the guest on a plain runner with the NBT toolchain (no QNX SDP, no
-private image), signs it with the apps key after a maintainer approves the run
-(the `release` environment, secret `APPS_SIGNING_KEY`, tags `v*` only) and
-publishes `doom-X.Y.Z.nbt`, sequence `X*1000000 + Y*1000 + Z`.
-`release/sdk.ref` is the SDK commit both build against:
-[SDK 0.1.0](https://github.com/NBTFoundry/sdk/releases/tag/v0.1.0).
+builds the guest on a plain runner with the NBT toolchain (no private image),
+signs it with the apps key after a maintainer approves the run (the `release`
+environment, secret `APPS_SIGNING_KEY`, tags `v*` only) and publishes
+`doom-X.Y.Z.nbt`, sequence `X*1000000 + Y*1000 + Z`. `release/sdk.ref` is the
+SDK commit both build against: [SDK
+0.1.0](https://github.com/NBTFoundry/sdk/releases/tag/v0.1.0).
 
 ### The shareware WAD
 

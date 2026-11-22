@@ -255,30 +255,6 @@ int nbt_vfs_stat(const char* path, struct stat* buf) {
   return stat(path, buf);
 }
 
-#ifdef __QNXNTO__
-static FILE* open_temp_vfs_stream(const char* dir, const unsigned char* data, size_t size) {
-  char tmpl[512];
-  snprintf(tmpl, sizeof(tmpl), "%s/.nbtvfs_XXXXXX", dir);
-  int fd = mkstemp(tmpl);
-  if (fd < 0) return nullptr;
-  unlink(tmpl);
-  size_t off = 0;
-  while (off < size) {
-    ssize_t w = write(fd, data + off, size - off);
-    if (w <= 0) {
-      if (w < 0 && errno == EINTR) continue;
-      close(fd);
-      return nullptr;
-    }
-    off += static_cast<size_t>(w);
-  }
-  lseek(fd, 0, SEEK_SET);
-  FILE* fp = fdopen(fd, "rb");
-  if (!fp) close(fd);
-  return fp;
-}
-#endif
-
 FILE* nbt_vfs_fopen(const char* path, const char* mode) {
   int fi = find_vfs_file(path);
   if (fi < 0) return fopen(path, mode);
@@ -286,14 +262,7 @@ FILE* nbt_vfs_fopen(const char* path, const char* mode) {
     errno = EROFS;
     return nullptr;
   }
-#ifdef __QNXNTO__
-  FILE* fp = open_temp_vfs_stream("/dev/shmem", g_files[fi].data, g_files[fi].size);
-  if (!fp) fp = open_temp_vfs_stream("/tmp", g_files[fi].data, g_files[fi].size);
-  if (!fp) fp = open_temp_vfs_stream(nbt_data_dir(), g_files[fi].data, g_files[fi].size);
-  return fp;
-#else
   return fmemopen(const_cast<unsigned char*>(g_files[fi].data), g_files[fi].size, "rb");
-#endif
 }
 
 }  // extern "C"

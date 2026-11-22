@@ -323,12 +323,4 @@ unsigned char* I_GrabScreen(void) {
   return NULL;
 }
 
-#ifdef __QNXNTO__
-size_t strnlen(const char* s, size_t maxlen) {
-  size_t n = 0;
-  while (n < maxlen && s[n] != '\0') n++;
-  return n;
-}
-#endif
-
 }  // extern "C"
