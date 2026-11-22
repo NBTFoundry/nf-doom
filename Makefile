@@ -16,17 +16,14 @@ APP_KEY ?=
 # $(BUILD_DIR)/sdk; the manager is only needed for packaging.
 NBT_SDK_DIR ?= ../sdk
 NBT_MGR_DIR ?= ../manager
-# QNX 6.5 toolchain: the environment script to source, and the folder holding
-# the head unit's libscreen.so.
+# The QNX SDP builds only the SDK's nbt-runner, for the VM test: Doom is GPL,
+# so the application is a guest, never a QNX build. On the car, NBT Manager's
+# own nbt-runner runs the guest (bridge 1.7, runner).
 QNX_ENV ?=
 QNX_SCREEN_LIBDIR ?=
 
 CC ?= gcc
 CXX ?= g++
-QCC ?= qcc
-QNX_STRIP ?= ntoarmv7-strip
-QNX_READELF ?= ntoarmv7-readelf
-QNX_NM ?= ntoarmv7-nm
 
 NBT_SDK_BUILD_DIR := $(abspath $(BUILD_DIR))/sdk
 include $(NBT_SDK_DIR)/nbt-sdk.mk
@@ -160,7 +157,7 @@ WAD_SPRITEP := \
 	18,27,sprites/pls1g0.ppm 9,11,sprites/pls2a0.ppm 8,13,sprites/pls2b0.ppm \
 	11,18,sprites/pls2c0.ppm 16,27,sprites/pls2d0.ppm 18,27,sprites/pls2e0.ppm
 
-.PHONY: all host doom-host run-doom-host test test-asan qnx qnx-check doom-package package-args format check-static-init clean FORCE
+.PHONY: all host doom-host run-doom-host test test-asan doom-package package package-args notice format check-static-init clean FORCE
 
 all: doom-host test
 
@@ -277,66 +274,6 @@ check-static-init: doom-host
 format:
 	clang-format -i $(shell find src tests -maxdepth 2 \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \))
 
-# --- QNX 6.5 ARMv7 cross-compilation ---
-.PHONY: qnx-env
-qnx-env:
-	@test -n "$(QNX_ENV)" || { echo "QNX_ENV is not set: make QNX_ENV=/path/to/qnx-env.sh ..."; exit 1; }
-	@test -r "$(QNX_ENV)" || { echo "QNX_ENV=$(QNX_ENV) is not readable"; exit 1; }
-
-QNX_C_VARIANT := -Vgcc_ntoarmv7le
-QNX_CPP_VARIANT := -Vgcc_ntoarmv7le_gpp
-QNX_CFLAGS := $(QNX_C_VARIANT) -D_QNX_SOURCE -O2 -Wc,-std=gnu99 -w $(COMMON_INC) $(COMMON_DEFS)
-QNX_OUR_CFLAGS := $(QNX_C_VARIANT) -D_QNX_SOURCE -O2 -Wc,-std=gnu99 -Wc,-Wall -Wc,-Wextra $(COMMON_INC) $(COMMON_DEFS)
-QNX_PRBOOM_CXXFLAGS := $(QNX_CPP_VARIANT) -D_QNX_SOURCE -O2 -Wc,-std=c++11 -Wc,-fno-exceptions -Wc,-fno-rtti -w $(COMMON_INC) $(COMMON_DEFS)
-QNX_OUR_CXXFLAGS := $(QNX_CPP_VARIANT) -D_QNX_SOURCE -O2 -Wc,-std=c++11 -Wc,-fno-exceptions -Wc,-fno-rtti -Wc,-Wall -Wc,-Wextra $(COMMON_INC) $(COMMON_DEFS)
-QNX_DEPFLAGS = -Wp,-MMD,$(@:.o=.d) -Wp,-MP -Wp,-MT,$@
-
-QNX_PRBOOM_OBJ := \
-	$(patsubst %.c,$(OBJ_DIR)/qnx/prboom/%.o,$(PRBOOM_CORE_C)) \
-	$(patsubst %.cpp,$(OBJ_DIR)/qnx/prboom/%.o,$(PRBOOM_CORE_CXX))
-
-QNX_OUR_OBJ := \
-	$(patsubst %.c,$(OBJ_DIR)/qnx/%.o,$(OUR_C)) \
-	$(patsubst %.cpp,$(OBJ_DIR)/qnx/%.o,$(OUR_CXX)) \
-	$(OBJ_DIR)/qnx/wad_embed.o
-
-$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.c $(call stamp,qnx) | qnx-env
-	@mkdir -p $(dir $@)
-	. "$(QNX_ENV)" && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
-
-$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.cpp $(call stamp,qnx) | qnx-env
-	@mkdir -p $(dir $@)
-	. "$(QNX_ENV)" && $(QCC) $(QNX_PRBOOM_CXXFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
-
-$(OBJ_DIR)/qnx/src/prboom_compat/w_wad_wrap.o: src/prboom_compat/w_wad_wrap.c $(call stamp,qnx) | qnx-env
-	@mkdir -p $(dir $@)
-	. "$(QNX_ENV)" && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
-
-$(OBJ_DIR)/qnx/src/prboom_compat/m_io_wrap.o: src/prboom_compat/m_io_wrap.c $(call stamp,qnx) | qnx-env
-	@mkdir -p $(dir $@)
-	. "$(QNX_ENV)" && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
-
-$(OBJ_DIR)/qnx/src/%.o: src/%.c $(call stamp,qnx) | qnx-env
-	@mkdir -p $(dir $@)
-	. "$(QNX_ENV)" && $(QCC) $(QNX_OUR_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
-
-$(OBJ_DIR)/qnx/src/%.o: src/%.cpp $(call stamp,qnx) | qnx-env
-	@mkdir -p $(dir $@)
-	. "$(QNX_ENV)" && $(QCC) $(QNX_OUR_CXXFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
-
-$(OBJ_DIR)/qnx/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) $(call stamp,qnx) | qnx-env
-	@mkdir -p $(dir $@)
-	. "$(QNX_ENV)" && $(QCC) $(QNX_C_VARIANT) $(WAD_ASM_FLAGS) -c src/wad_embed.S -o $@
-
-$(BUILD_DIR)/nbt-doom-qnx-unstripped: $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_FRONT_QNX_LIBS) | qnx-env
-	@test -n "$(QNX_SCREEN_LIBDIR)" || { echo "QNX_SCREEN_LIBDIR is not set (directory with libscreen.so)"; exit 1; }
-	. "$(QNX_ENV)" && $(QCC) $(QNX_CPP_VARIANT) -lang-c++ $(QNX_PRBOOM_OBJ) $(QNX_OUR_OBJ) $(NBT_SDK_FRONT_QNX_LIBS) -L$(QNX_SCREEN_LIBDIR) $(NBT_SDK_QNX_LDFLAGS) $(NBT_SDK_QNX_LDLIBS) -o $@
-
-$(BUILD_DIR)/nbt-doom-qnx: $(BUILD_DIR)/nbt-doom-qnx-unstripped
-	. "$(QNX_ENV)" && $(QNX_STRIP) -o $@ $<
-
-qnx: $(BUILD_DIR)/nbt-doom-qnx
-
 # --- A guest: built without the QNX SDP, run by nbt-runner as its own
 # process (sdk/guest). Doom is GPL: the QNX licence forbids linking it with
 # QNX code, so it must be a guest, never a module (the licence gate checks). ---
@@ -396,21 +333,13 @@ vm-test: $(NBT_SDK_RUNNER) $(GUEST_APP)
 		-x 'stage: check' -x 'fake-gl: closed: [1-9][0-9]* frames' -x 'runner: guest exited status=0' \
 		$^
 
-qnx-check: qnx
-	. "$(QNX_ENV)" && $(QNX_READELF) -h -d $(BUILD_DIR)/nbt-doom-qnx
-	. "$(QNX_ENV)" && set -e; \
-		bad="$$($(QNX_NM) -u $(BUILD_DIR)/nbt-doom-qnx-unstripped | grep -E 'GLIBCXX_3\.4\.(1[4-9]|[2-9][0-9])|__cxa_throw' || true)"; \
-		if test -n "$$bad"; then echo "Disallowed QNX ABI symbols:"; echo "$$bad"; exit 1; fi; \
-		$(QNX_NM) -D $(BUILD_DIR)/nbt-doom-qnx-unstripped | grep -qw kdMain || { echo "kdMain is not exported"; exit 1; }; \
-		echo "OK: QNX binary ELF/ABI symbols verified, kdMain exported"
-
 # release/package.args's PrBoom+ version (tools/package_version.py): again
 # when the pin moves; `make test` fails until then.
 package-args:
 	python3 tools/package_version.py release/package.args
 
 # The package's executable: the guest, which NBT Manager's nbt-runner runs
-# (bridge 1.7, runner). The QNX build stays for comparisons on the car.
+# (bridge 1.7, runner).
 PACKAGE_INPUT ?= $(GUEST_APP)
 
 doom-package: $(PACKAGE_INPUT)
@@ -424,6 +353,13 @@ doom-package: $(PACKAGE_INPUT)
 		--output $(BUILD_DIR)/doom-$(APP_VERSION).nbt \
 		$(PACKAGE_INPUT)
 
+package: doom-package
+
+# legal/NOTICE.txt (tools/make_notice.py): again when the pin, the SDK or the
+# toolchain changes.
+notice:
+	NBT_SDK_DIR=$(NBT_SDK_ROOT) NBT_TOOLCHAIN=$(NBT_TOOLCHAIN) python3 tools/make_notice.py
+
 clean:
 	rm -rf $(BUILD_DIR)
 
@@ -432,7 +368,5 @@ DEPS := $(shell find $(OBJ_DIR) -name '*.d' 2>/dev/null)
 
 $(call nbt_stamp,$(call stamp,host),$(CC) $(CXX) $(COMMON_INC) $(COMMON_DEFS) | $(PRBOOM_C_WARN) | $(PRBOOM_CXX_WARN) \
 	| $(HOST_CFLAGS) | $(HOST_CXXFLAGS) | $(WAD_ASM_FLAGS),$(CC) $(CXX))
-$(call nbt_stamp,$(call stamp,qnx),$(if $(QNX_ENV),$(QNX_ENV) $(QCC) $(QNX_CFLAGS) | $(QNX_OUR_CFLAGS) \
-	| $(QNX_PRBOOM_CXXFLAGS) | $(QNX_OUR_CXXFLAGS) | $(WAD_ASM_FLAGS)))
 $(call nbt_stamp,$(call stamp,mod),$(NBT_MOD_CC) $(MOD_PRBOOM_CFLAGS) | $(MOD_PRBOOM_CXXFLAGS) | $(MOD_OUR_CFLAGS) \
 	| $(MOD_OUR_CXXFLAGS) | $(NBT_MOD_ARCH) $(WAD_ASM_FLAGS),,$(NBT_TOOLCHAIN)/VERSION)

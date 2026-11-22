@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Integration tests for nbt-doom host binary and QNX .nbt packaging."""
+"""Integration tests for the nbt-doom host binary and its .nbt package."""
 
 import fcntl
 import os
