@@ -30,6 +30,12 @@ QNX_NM ?= ntoarmv7-nm
 
 NBT_SDK_BUILD_DIR := $(abspath $(BUILD_DIR))/sdk
 include $(NBT_SDK_DIR)/nbt-sdk.mk
+# Each kind of object rebuilds when its compile command changes (the SDK's
+# nbt-stamp.mk; the stamps are written at the end of this file).
+stamp = $(OBJ_DIR)/$(1).stamp
+ifeq ($(value nbt_stamp),)
+$(error $(NBT_SDK_ROOT) has no nbt-stamp.mk: update that SDK checkout)
+endif
 
 COMMON_INC := $(NBT_SDK_INC) -Isrc -Isrc/prboom_compat -I$(PRBOOM_SRC)
 COMMON_DEFS := -DHAVE_CONFIG_H $(if $(HAS_DOOM1_WAD),,-DNBT_NO_EMBEDDED_DOOM1)
@@ -178,31 +184,31 @@ $(BUILD_DIR)/prboom-plus.wad: $(BUILD_DIR)/rdatawad
 		-o $@
 
 # --- Host compilation rules ---
-$(OBJ_DIR)/host/prboom/%.o: $(PRBOOM_SRC)/%.c
+$(OBJ_DIR)/host/prboom/%.o: $(PRBOOM_SRC)/%.c $(call stamp,host)
 	@mkdir -p $(dir $@)
 	$(CC) $(COMMON_INC) $(COMMON_DEFS) $(PRBOOM_C_WARN) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/host/prboom/%.o: $(PRBOOM_SRC)/%.cpp
+$(OBJ_DIR)/host/prboom/%.o: $(PRBOOM_SRC)/%.cpp $(call stamp,host)
 	@mkdir -p $(dir $@)
 	$(CXX) $(COMMON_INC) $(COMMON_DEFS) $(PRBOOM_CXX_WARN) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/host/src/prboom_compat/w_wad_wrap.o: src/prboom_compat/w_wad_wrap.c
+$(OBJ_DIR)/host/src/prboom_compat/w_wad_wrap.o: src/prboom_compat/w_wad_wrap.c $(call stamp,host)
 	@mkdir -p $(dir $@)
 	$(CC) $(COMMON_INC) $(COMMON_DEFS) $(PRBOOM_C_WARN) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/host/src/prboom_compat/m_io_wrap.o: src/prboom_compat/m_io_wrap.c
+$(OBJ_DIR)/host/src/prboom_compat/m_io_wrap.o: src/prboom_compat/m_io_wrap.c $(call stamp,host)
 	@mkdir -p $(dir $@)
 	$(CC) $(COMMON_INC) $(COMMON_DEFS) $(PRBOOM_C_WARN) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/host/src/%.o: src/%.c
+$(OBJ_DIR)/host/src/%.o: src/%.c $(call stamp,host)
 	@mkdir -p $(dir $@)
 	$(CC) $(COMMON_INC) $(COMMON_DEFS) $(HOST_CFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/host/src/%.o: src/%.cpp
+$(OBJ_DIR)/host/src/%.o: src/%.cpp $(call stamp,host)
 	@mkdir -p $(dir $@)
 	$(CXX) $(COMMON_INC) $(COMMON_DEFS) $(HOST_CXXFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/host/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD)
+$(OBJ_DIR)/host/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) $(call stamp,host)
 	@mkdir -p $(dir $@)
 	$(CC) $(WAD_ASM_FLAGS) -c src/wad_embed.S -o $@
 
@@ -228,7 +234,7 @@ UNIT_CXX_SRC := \
 UNIT_C_SRC := \
 	src/prboom_compat/sdl_compat.c
 
-$(OBJ_DIR)/host/tests/doom_test.o: tests/doom_test.cpp
+$(OBJ_DIR)/host/tests/doom_test.o: tests/doom_test.cpp $(call stamp,host)
 	@mkdir -p $(dir $@)
 	$(CXX) $(COMMON_INC) $(COMMON_DEFS) $(HOST_CXXFLAGS) -MMD -MP -c $< -o $@
 
@@ -293,31 +299,31 @@ QNX_OUR_OBJ := \
 	$(patsubst %.cpp,$(OBJ_DIR)/qnx/%.o,$(OUR_CXX)) \
 	$(OBJ_DIR)/qnx/wad_embed.o
 
-$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.c | qnx-env
+$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.c $(call stamp,qnx) | qnx-env
 	@mkdir -p $(dir $@)
 	. "$(QNX_ENV)" && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.cpp | qnx-env
+$(OBJ_DIR)/qnx/prboom/%.o: $(PRBOOM_SRC)/%.cpp $(call stamp,qnx) | qnx-env
 	@mkdir -p $(dir $@)
 	. "$(QNX_ENV)" && $(QCC) $(QNX_PRBOOM_CXXFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/src/prboom_compat/w_wad_wrap.o: src/prboom_compat/w_wad_wrap.c | qnx-env
+$(OBJ_DIR)/qnx/src/prboom_compat/w_wad_wrap.o: src/prboom_compat/w_wad_wrap.c $(call stamp,qnx) | qnx-env
 	@mkdir -p $(dir $@)
 	. "$(QNX_ENV)" && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/src/prboom_compat/m_io_wrap.o: src/prboom_compat/m_io_wrap.c | qnx-env
+$(OBJ_DIR)/qnx/src/prboom_compat/m_io_wrap.o: src/prboom_compat/m_io_wrap.c $(call stamp,qnx) | qnx-env
 	@mkdir -p $(dir $@)
 	. "$(QNX_ENV)" && $(QCC) $(QNX_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/src/%.o: src/%.c | qnx-env
+$(OBJ_DIR)/qnx/src/%.o: src/%.c $(call stamp,qnx) | qnx-env
 	@mkdir -p $(dir $@)
 	. "$(QNX_ENV)" && $(QCC) $(QNX_OUR_CFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/src/%.o: src/%.cpp | qnx-env
+$(OBJ_DIR)/qnx/src/%.o: src/%.cpp $(call stamp,qnx) | qnx-env
 	@mkdir -p $(dir $@)
 	. "$(QNX_ENV)" && $(QCC) $(QNX_OUR_CXXFLAGS) $(QNX_DEPFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/qnx/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) | qnx-env
+$(OBJ_DIR)/qnx/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) $(call stamp,qnx) | qnx-env
 	@mkdir -p $(dir $@)
 	. "$(QNX_ENV)" && $(QCC) $(QNX_C_VARIANT) $(WAD_ASM_FLAGS) -c src/wad_embed.S -o $@
 
@@ -345,27 +351,27 @@ MOD_PRBOOM_OBJ := $(patsubst %.c,$(OBJ_DIR)/mod/prboom/%.o,$(PRBOOM_CORE_C)) \
 MOD_OUR_OBJ := $(patsubst %.c,$(OBJ_DIR)/mod/%.o,$(OUR_C)) $(patsubst %.cpp,$(OBJ_DIR)/mod/%.o,$(OUR_CXX)) \
 	$(OBJ_DIR)/mod/wad_embed.o
 
-$(OBJ_DIR)/mod/prboom/%.o: $(PRBOOM_SRC)/%.c | nbt-sdk-mod
+$(OBJ_DIR)/mod/prboom/%.o: $(PRBOOM_SRC)/%.c $(call stamp,mod) | nbt-sdk-mod
 	@mkdir -p $(dir $@)
 	$(NBT_MOD_CC) $(MOD_PRBOOM_CFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/mod/prboom/%.o: $(PRBOOM_SRC)/%.cpp | nbt-sdk-mod
+$(OBJ_DIR)/mod/prboom/%.o: $(PRBOOM_SRC)/%.cpp $(call stamp,mod) | nbt-sdk-mod
 	@mkdir -p $(dir $@)
 	$(NBT_MOD_CXX) $(MOD_PRBOOM_CXXFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/mod/src/prboom_compat/%.o: src/prboom_compat/%.c | nbt-sdk-mod
+$(OBJ_DIR)/mod/src/prboom_compat/%.o: src/prboom_compat/%.c $(call stamp,mod) | nbt-sdk-mod
 	@mkdir -p $(dir $@)
 	$(NBT_MOD_CC) $(MOD_PRBOOM_CFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/mod/src/%.o: src/%.c | nbt-sdk-mod
+$(OBJ_DIR)/mod/src/%.o: src/%.c $(call stamp,mod) | nbt-sdk-mod
 	@mkdir -p $(dir $@)
 	$(NBT_MOD_CC) $(MOD_OUR_CFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/mod/src/%.o: src/%.cpp | nbt-sdk-mod
+$(OBJ_DIR)/mod/src/%.o: src/%.cpp $(call stamp,mod) | nbt-sdk-mod
 	@mkdir -p $(dir $@)
 	$(NBT_MOD_CXX) $(MOD_OUR_CXXFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/mod/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) | nbt-sdk-mod
+$(OBJ_DIR)/mod/wad_embed.o: src/wad_embed.S $(BUILD_DIR)/prboom-plus.wad $(HAS_DOOM1_WAD) $(call stamp,mod) | nbt-sdk-mod
 	@mkdir -p $(dir $@)
 	$(NBT_MOD_CC) $(NBT_MOD_ARCH) $(WAD_ASM_FLAGS) -c src/wad_embed.S -o $@
 
@@ -418,3 +424,9 @@ clean:
 DEPS := $(shell find $(OBJ_DIR) -name '*.d' 2>/dev/null)
 -include $(DEPS)
 
+$(call nbt_stamp,$(call stamp,host),$(CC) $(CXX) $(COMMON_INC) $(COMMON_DEFS) | $(PRBOOM_C_WARN) | $(PRBOOM_CXX_WARN) \
+	| $(HOST_CFLAGS) | $(HOST_CXXFLAGS) | $(WAD_ASM_FLAGS),$(CC) $(CXX))
+$(call nbt_stamp,$(call stamp,qnx),$(if $(QNX_ENV),$(QNX_ENV) $(QCC) $(QNX_CFLAGS) | $(QNX_OUR_CFLAGS) \
+	| $(QNX_PRBOOM_CXXFLAGS) | $(QNX_OUR_CXXFLAGS) | $(WAD_ASM_FLAGS)))
+$(call nbt_stamp,$(call stamp,mod),$(NBT_MOD_CC) $(MOD_PRBOOM_CFLAGS) | $(MOD_PRBOOM_CXXFLAGS) | $(MOD_OUR_CFLAGS) \
+	| $(MOD_OUR_CXXFLAGS) | $(NBT_MOD_ARCH) $(WAD_ASM_FLAGS),,$(NBT_TOOLCHAIN)/VERSION)
