@@ -32,7 +32,8 @@ Part of [NBTFoundry](https://github.com/NBTFoundry):
 [manager](https://github.com/NBTFoundry/manager) ·
 [sdk](https://github.com/NBTFoundry/sdk) ·
 [mobile-app](https://github.com/NBTFoundry/mobile-app) ·
-[installer](https://github.com/NBTFoundry/installer)
+[installer](https://github.com/NBTFoundry/installer) ·
+[toolchains](https://github.com/NBTFoundry/toolchains)
 
 Not affiliated with or endorsed by BMW AG or id Software. BMW, iDrive and NBT are
 trademarks of BMW AG; DOOM is a trademark of id Software.
@@ -110,9 +111,12 @@ Doom's data folder.
 
 ## Bridge
 
-The package declares bridge 1.5 with capabilities `show` and `controller`
-required, `status`, `live-settings` and `gamepad` optional; bridge 1.5 gives
-the pad's family. Doom reports
+The package carries the guest (built without the QNX SDP, run by NBT
+Manager's `nbt-runner`) and declares bridge 1.7: `show`, `controller` and
+`runner` required, `status`, `live-settings` and `gamepad` optional (the
+pad's family). It also carries what the phone app shows before an install
+(the PrBoom+ version, the project, the licence, notices), so it needs NBT
+Manager 0.3.1 or later. Doom reports
 `E1M1 H:100%`, `Menu` or `DOOM Shareware` as its status. NBT Manager keeps its
 standard output and error as Doom's log (`state/doom/output.log`, shown, shared and
 cleared from the phone app). A crash adds a line
@@ -133,30 +137,35 @@ make -j"$(nproc)" host test test-asan check-static-init   # host binary and test
 ./build/nbt-doom-host                                     # play on the desktop (X11)
 ```
 
-Head unit (QNX 6.5 ARMv7): a guest, built with the SDK's open toolchain
+Head unit (QNX 6.5 ARMv7): a guest, built with the NBT toolchain
 (`make -C ../sdk toolchain` once) and nothing from the QNX SDP, so this GPL
-program never links QNX code. NBT Manager 0.2.0 and later (bridge 1.7) run it with
-their `nbt-runner`:
+program never links QNX code. NBT Manager's `nbt-runner` runs it as its own
+process (bridge 1.7, `runner`):
 
 ```sh
 make -j"$(nproc)" guest                                        # build/nbt-doom.guest
-make APP_KEY=/path/to/apps-signing-key.pem doom-package        # build/doom-<version>.nbt
+make APP_KEY=/path/to/apps-signing-key.pem package             # build/doom-<version>.nbt
+make QNX_ENV=… QNX_SCREEN_LIBDIR=… vm-test                     # QNX 6.5 SP1 under QEMU
 ```
 
-`doom-package` signs the guest with NBT Manager's packer
+`package` (also `doom-package`) signs the guest with NBT Manager's packer
 (`../manager/tools/package.py`, or `NBT_MGR_DIR`), described by
-`release/package.args`. It also carries what the phone app shows before an install
-(the PrBoom+ version, the project, the licence, notices); `make package-args`
-writes the version the pin builds, and `make test` fails when it lags.
-`make vm-test` runs the guest in the SDK's QNX 6.5 VM.
+`release/package.args`; `make package-args` writes the PrBoom+ version the pin
+builds, and `make test` fails when it lags. `vm-test` runs the guest in the
+SDK's QNX 6.5 VM; `QNX_ENV` and `QNX_SCREEN_LIBDIR` build the SDK's
+`nbt-runner` for it, the only use of the QNX SDP. `make notice` writes
+`legal/NOTICE.txt`.
 
-Pushing a tag `vX.Y.Z` releases a signed package from CI
-(`.github/workflows/release.yml`, NBT Manager's `app-release.yml` with
-`qnx: false`: a plain runner, no private image), package sequence
-`X*1000000 + Y*1000 + Z`, signed after a maintainer approves the run.
+## Releases
 
-The QNX SDP build stays for comparisons on the car (`make QNX_ENV=…
-QNX_SCREEN_LIBDIR=… qnx qnx-check`); packages do not carry it.
+`.github/workflows/ci.yml` runs the host tests, the same under ASan/UBSan and the
+guest build on every push and pull request. A `vX.Y.Z` tag runs
+`.github/workflows/release.yml`: NBT Manager's application release workflow
+builds the guest on a plain runner with the NBT toolchain (no QNX SDP, no
+private image), signs it with the apps key after a maintainer approves the run
+(the `release` environment, secret `APPS_SIGNING_KEY`, tags `v*` only) and
+publishes `doom-X.Y.Z.nbt`, sequence `X*1000000 + Y*1000 + Z`.
+`release/sdk.ref` is the SDK commit both build against.
 
 ### The shareware WAD
 
@@ -183,7 +192,9 @@ with libwebp and ImageMagick).
 | `src/doom_input.hpp`, `src/doom_controls.*`, `src/input_idrive.*`, `src/input_gamepad.*` | Key codes, the bindings per pad family and for the controller, and their decoders |
 | `src/doom_log.*` | Log start-up |
 | `tests/` | Unit tests (`doom_test.cpp`) and integration tests (`test_doom.py`) |
-| `tools/` | README capture script |
+| `tools/` | PrBoom+ version for the package (`package_version.py`), notices (`make_notice.py`), README capture |
+| `release/` | The package description and the SDK commit to build against |
+| `legal/` | Third-party notices (`NOTICE.txt`, generated) and the shareware data's status |
 
 ## License
 
