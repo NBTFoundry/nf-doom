@@ -37,7 +37,7 @@ jobs:
 
   release:
     needs: pins
-    uses: NBTFoundry/manager/.github/workflows/app-release.yml@3adb3b0d0b9e668dd4c8bd89766fee965d904d3e # manager v0.3.1 + lfs input
+    uses: NBTFoundry/manager/.github/workflows/app-release.yml@85c9cecb7f34edaf3d18033d010e629b329b83d1 # manager v0.3.1 + lfs input, qnx defaults to false
     permissions:
       contents: write
       packages: read
@@ -45,7 +45,6 @@ jobs:
     secrets: inherit
     with:
       sdk-ref: ${{ needs.pins.outputs.sdk }}
-      qnx: false
       # assets/doom1.wad is in Git LFS: without it the guest would embed the pointer.
       lfs: true
       build: make -j"$(nproc)" guest
